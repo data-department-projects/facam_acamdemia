@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictPropertyInitialization": false,
+    "paths": {
+      "@nestjs/config": ["../../node_modules/@nestjs/config"],
+      "@nestjs/config/*": ["../../node_modules/@nestjs/config/*"],
+      "@nestjs/jwt": ["../../node_modules/@nestjs/jwt"],
+      "@nestjs/jwt/*": ["../../node_modules/@nestjs/jwt/*"],
+      "@nestjs/passport": ["../../node_modules/@nestjs/passport"],
+      "@nestjs/passport/*": ["../../node_modules/@nestjs/passport/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

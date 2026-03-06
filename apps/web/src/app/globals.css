@@ -1,0 +1,154 @@
+/**
+ * Charte graphique FACAM STAIRWAY — Fichier de référence
+ * Polices : Montserrat (texte + titres), Blacksword (décoratif uniquement).
+ * Couleurs : facam-blue #001b61, facam-dark #000d32, facam-yellow #ffae03, etc.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Blacksword&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-montserrat: 'Montserrat', system-ui, -apple-system, sans-serif;
+  --font-blacksword: 'Blacksword', cursive;
+
+  --facam-blue: #001b61;
+  --facam-blue-mid: #002a6e;
+  --facam-dark: #000d32;
+  --facam-yellow: #ffae03;
+  --facam-white: #ffffff;
+  --facam-black: #000000;
+  --facam-blue-tint: #f0f4fa;
+
+  --facam-yellow-rgb: 255, 174, 3;
+  --facam-blue-rgb: 0, 27, 97;
+  --facam-blue-mid-rgb: 0, 42, 110;
+  --facam-dark-rgb: 0, 13, 50;
+
+  --color-background: #ffffff;
+  --color-text: #000000;
+  --color-error: #b91c1c;
+
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-montserrat);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-montserrat);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-montserrat);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+main {
+  overflow-x: hidden;
+  width: 100%;
+  font-family: var(--font-montserrat);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Barre de progression au scroll */
+.scroll-progress-bar {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--gray-200);
+}
+.scroll-progress-bar::-webkit-progress-bar {
+  background: var(--gray-200);
+}
+.scroll-progress-bar::-webkit-progress-value {
+  background: var(--facam-blue);
+  transition: width 0.15s ease-out;
+}
+.scroll-progress-bar::-moz-progress-bar {
+  background: var(--facam-blue);
+}
+
+.font-blacksword {
+  font-family: var(--font-blacksword);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Masquer la scrollbar tout en gardant le défilement (overflow-x-auto) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.container-custom {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (min-width: 640px) {
+  .container-custom {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .container-custom {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}

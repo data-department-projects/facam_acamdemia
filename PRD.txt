@@ -1,0 +1,170 @@
+### 1. Points à confirmer sur les technologies et flux
+
+**Frontend / Backend**
+
+* Next.js côté frontend + Nest.js côté backend : c’est clair, mais veux-tu que toutes les pages du module (cours + quiz + dashboard) soient **Server Components** ou certaines parties seront côté client uniquement ?
+* Gestion des rôles : JWT ou sessions sécurisées via Supabase Auth + rôle côté backend ?
+
+**Base de données**
+
+* Supabase PostgreSQL pour toutes les entités (users, modules, chapitres, quiz, progression).
+* La structure des tables est-elle déjà prévue pour gérer :
+
+  * Chapitres + quiz par chapitre
+  * Tentatives multiples
+  * Score final du module
+  * Historique de progression par étudiant
+  * Fichiers SharePoint (URL, métadonnées, version)
+
+**Stockage / Multimédia**
+
+* SharePoint pour les documents téléchargeables (PDF, PPTX, DOCX).
+* YouTube HLS/DRM pour les vidéos.
+* Prévois-tu une synchronisation automatique des vidéos et docs dans la DB pour que les responsables de modules puissent les lier facilement aux chapitres ?
+
+**Tests / Certification**
+
+* Chaque chapitre a ses tests configurés par l’administrateur du module.
+* Test final du module validé par l’administrateur → génération de PDFKit pour le certificat.
+* Veux-tu **notifications automatiques par email** à l’étudiant quand le module est validé ?
+
+**Reprise des modules**
+
+* Les étudiants peuvent reprendre un module à tout moment, et la progression est sauvegardée par chapitre.
+* On garde un suivi historique pour chaque tentative ?
+
+**CI/CD et dev workflow**
+
+* Turborepo est déjà configuré → simplifie le build et le dev local.
+* GitHub Actions + Vercel pour deploy → prêt.
+* Souhaites-tu inclure **tests automatisés unitaires + E2E Cypress** dans le PRD ?
+
+---
+
+### 2. Points à inclure pour un Cahier des Charges “propre”
+
+1. **Objectifs et périmètre** : ce que tu as déjà rédigé, clarifié avec les fonctionnalités exactes (chapitre, test, reprise, certificat).
+2. **Acteurs et rôles** : bien définir les droits pour chaque acteur.
+3. **Fonctionnalités détaillées** :
+
+   * Création et structuration des modules
+   * Gestion des ressources multimédias
+   * Quiz par chapitre + test final
+   * Reprise module après abandon
+   * Statistiques et dashboards
+   * Certificats PDF
+4. **Contraintes techniques** :
+
+   * Scalabilité (Supabase + Vercel)
+   * Sécurité / RGPD
+   * Stockage SharePoint + YouTube sécurisé
+5. **Interfaces attendues** : mockups ou descriptions UI/UX pour chaque acteur.
+6. **Flux et architecture** : schéma simplifié de comment les données circulent (DB → backend → frontend → stockage multimédia).
+7. **Roadmap et livrables** : MVP, fonctionnalités avancées, dates de livraison.
+
+PRD :
+Parfait, on va donc inclure dans le PRD des **mockups/UI simplifiés** pour chaque interface, ce qui permettra aux développeurs et designers de visualiser clairement les écrans attendus.
+
+Pour structurer le **PRD / PRTD final**, voilà comment on peut procéder pour FACAM ACADEMIA :
+
+---
+
+## 1. MVP & Découpage par Sprints
+
+**Sprint 1 – Fondations & Authentification**
+
+* Création des tables Supabase : utilisateurs, rôles, modules, chapitres, quiz, progression, certificats.
+* Authentification sécurisée par email/mot de passe + OTP Supabase Auth.
+* Interface login / signup pour étudiants et responsables.
+
+**Sprint 2 – Gestion des Modules & Contenu**
+
+* CRUD modules et chapitres pour responsables.
+* Liaison avec SharePoint pour documents (upload, versioning).
+* Liaison avec YouTube HLS/DRM pour vidéos.
+* Mockups UI : interface module, ajout de ressources, drag & drop chapitres.
+
+**Sprint 3 – Quiz & Certification**
+
+* Création de quiz par chapitre (QCM, vrai/faux, ouvert).
+* Suivi de la progression de l’étudiant par chapitre.
+* Test final du module, validation par administrateur.
+* Génération automatique de certificat PDF via PDFKit.
+* Notifications email pour réussite module.
+* Mockups UI : quiz interactif, test final, écran certificat.
+
+**Sprint 4 – Dashboard & Statistiques**
+
+* Dashboard responsable de module : notes, taux de complétion, temps passé, tentatives.
+* Dashboard administrateur général : suivi global, gestion utilisateurs.
+* Mockups UI : dashboards graphiques (Chart.js).
+
+**Sprint 5 – Reprise module & Optimisations**
+
+* Fonction “reprendre module après abandon”, sauvegarde automatique de progression.
+* Optimisations frontend/backend, sécurité, logs, monitoring.
+
+---
+
+## 2. Fonctionnalités Clés
+
+| Fonctionnalité       | Description                                  | Acteur Principal           |
+| -------------------- | -------------------------------------------- | -------------------------- |
+| Création Module      | Ajouter chapitres, vidéos et docs            | Responsable Module         |
+| Quiz Chapitre        | QCM, vrai/faux, ouvert, score minimum        | Responsable Module         |
+| Test Final           | Validation finale par admin                  | Administrateur Module      |
+| Progression Étudiant | Pourcentage complété, reprise module         | Étudiant                   |
+| Certificat PDF       | Génération automatique avec nom, date, score | Étudiant                   |
+| Dashboard            | Statistiques et visualisation données        | Responsable Module / Admin |
+| Gestion Utilisateur  | Création, modification, rôles                | Admin / Resp Plateforme    |
+
+---
+
+## 3. Mockups Simplifiés (UI/UX)
+
+1. **Étudiant**
+
+   * Catalogue modules avec preview
+   * Écran cours + ressources
+   * Quiz interactif
+   * Test final + téléchargement certificat
+
+2. **Responsable Module**
+
+   * Éditeur modules & chapitres
+   * Upload vidéos / docs
+   * Création quiz & seuils de validation
+   * Dashboard statistiques module
+
+3. **Administrateur Général / Responsable Plateforme**
+
+   * Gestion comptes utilisateurs
+   * Validation comptes étudiants / responsables
+   * Dashboard global, suivi modules et utilisateurs
+
+4. **Support Technique**
+
+   * Monitoring erreurs système, logs backend
+   * Aucun accès aux données sensibles
+
+---
+
+## 4. Architecture & Flux de Données
+
+* **Frontend Next.js** → appels API Nest.js → **Supabase PostgreSQL**
+* **Stockage documents** → SharePoint
+* **Vidéos** → YouTube HLS/DRM
+* **Certificats PDF** → générés via PDFKit côté backend → lien download étudiant
+* **Progression + Quiz + Test final** → sauvegardé dans Supabase avec tentatives multiples
+
+---
+
+## 5. CI/CD & Dev Workflow
+
+* Turborepo gère build monorepo, caching et scripts dev/test
+* GitHub Actions pour lint, tests unitaires, E2E Cypress
+* Vercel serverless pour deploy frontend + backend functions
+* Notifications Slack / Email sur échec pipelines
+
+
+

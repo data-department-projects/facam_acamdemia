@@ -1,0 +1,265 @@
+// Schéma Prisma - FACAM ACADEMIA
+// Base de données : PostgreSQL (fournir DATABASE_URL dans .env)
+// Rôle : modéliser les comptes (étudiant, responsable module, admin), modules, chapitres,
+// quiz, inscriptions, progression, certificats, avis et discussions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Utilisateurs et rôles
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?   // null si auth externe (SSO)
+  fullName     String
+  role         String    // admin | module_manager | student | support
+  avatarUrl    String?
+  // Pour les étudiants : première connexion = début du délai de 30 jours
+  firstLoginAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Responsable de module : lié à un seul module
+  managedModule   Module?    @relation("ModuleManager")
+  enrollments     Enrollment[]
+  reviews         Review[]
+  discussions     Discussion[]
+  quizAttempts    QuizAttempt[]
+  gradedAttempts  FinalQuizGrade[] @relation("Grader")
+}
+
+// OTP pour réinitialisation mot de passe (expiration 3 minutes)
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  email     String
+  code      String   // 6 chiffres
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Module de formation (cours)
+// ---------------------------------------------------------------------------
+
+model Module {
+  id                 String    @id @default(cuid())
+  title              String
+  subtitle           String?
+  description        String    @db.Text
+  imageUrl           String?
+  teaserVideoUrl     String?   // Lien YouTube teaser (page aperçu)
+  level              String?   // debutant | intermediaire | avance
+  sharePointFolderUrl String?  // Dossier SharePoint unique pour ressources du module
+  authorName         String
+  authorBio          String?   @db.Text
+  authorAvatarUrl    String?
+  managerId          String?   @unique // Responsable du module (créé par admin)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  manager            User?     @relation("ModuleManager", fields: [managerId], references: [id], onDelete: SetNull)
+  chapters           Chapter[]
+  enrollments        Enrollment[]
+  reviews            Review[]
+  discussions        Discussion[]
+  quizzes            Quiz[]
+  certificates       Certificate[]
+}
+
+model Chapter {
+  id        String   @id @default(cuid())
+  moduleId  String
+  title     String
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  module Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  items  ChapterItem[]
+  quizzes Quiz[]       // Quiz par chapitre (QCM)
+}
+
+// Élément d'un chapitre : vidéo, document ou quiz
+model ChapterItem {
+  id              String   @id @default(cuid())
+  chapterId       String
+  type            String   // video | document | quiz
+  order           Int
+  title           String
+  durationMinutes Int?     // Pour vidéo
+  videoUrl        String?  // Lien YouTube
+  documentLabel   String?
+  documentUrl     String?
+  quizId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chapter  Chapter            @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  quiz     Quiz?              @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  progress EnrollmentProgress[]
+}
+
+// ---------------------------------------------------------------------------
+// Quiz (QCM par chapitre + quiz final par module)
+// ---------------------------------------------------------------------------
+
+model Quiz {
+  id             String   @id @default(cuid())
+  moduleId       String
+  chapterId      String?  // null = quiz final du module
+  title          String
+  isFinal        Boolean  @default(false) // true = quiz final (correction manuelle)
+  minScoreToPass Int      @default(70)   // 70 % pour valider un quiz chapitre
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  module   Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  chapter  Chapter?   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  items    ChapterItem[]
+  questions QuizQuestion[]
+  attempts QuizAttempt[]
+}
+
+model QuizQuestion {
+  id          String   @id @default(cuid())
+  quizId      String
+  questionText String  @db.Text
+  options     Json     // ["A", "B", "C", "D"]
+  correctIndex Int     // Index de la bonne réponse (0-based)
+  points      Int      @default(1)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Inscription étudiant à un module (accès 30 j depuis première connexion)
+// ---------------------------------------------------------------------------
+
+model Enrollment {
+  id                   String    @id @default(cuid())
+  userId               String
+  moduleId             String
+  enrolledAt           DateTime  @default(now())
+  lastViewedChapterId  String?
+  lastViewedItemId     String?
+  progressPercent      Int       @default(0) // 0-100
+  completedAt          DateTime? // Fin du module (quiz final validé)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress  EnrollmentProgress[]
+  attempts  QuizAttempt[]
+  certificate Certificate?
+  finalGrade FinalQuizGrade[]
+}
+
+model EnrollmentProgress {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  chapterItemId String
+  completedAt  DateTime  @default(now())
+
+  enrollment  Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  chapterItem ChapterItem @relation(fields: [chapterItemId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, chapterItemId])
+}
+
+// ---------------------------------------------------------------------------
+// Tentatives de quiz (QCM : score auto ; quiz final : note sur 20 par responsable)
+// ---------------------------------------------------------------------------
+
+model QuizAttempt {
+  id           String    @id @default(cuid())
+  userId       String
+  quizId       String
+  enrollmentId String?
+  scorePercent Int?      // Pour QCM : pourcentage
+  passed       Boolean?  // true si score >= 70 % (quiz chapitre)
+  answers      Json?     // Réponses envoyées
+  submittedAt  DateTime  @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz       Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  finalGrade FinalQuizGrade?
+}
+
+// Note sur 20 du quiz final (attribuée par le responsable du module)
+model FinalQuizGrade {
+  id           String    @id @default(cuid())
+  attemptId    String    @unique
+  enrollmentId String
+  gradeOver20  Int       // 0-20
+  mention      String?   // Passable | Assez bien | Bien | Très bien
+  gradedById   String
+  gradedAt     DateTime  @default(now())
+  comment      String?   @db.Text
+
+  attempt    QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  enrollment Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  grader     User        @relation("Grader", fields: [gradedById], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Certificat (données stockées ; PDF généré à la volée au téléchargement)
+// ---------------------------------------------------------------------------
+
+model Certificate {
+  id         String    @id @default(cuid())
+  enrollmentId String  @unique
+  userId     String
+  moduleId   String
+  finalGrade Int       // Note sur 20
+  mention    String    // Passable | Assez bien | Bien | Très bien
+  issuedAt   DateTime  @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  module     Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Avis (notation étoiles) et discussions (questions / réponses)
+// ---------------------------------------------------------------------------
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  moduleId  String
+  rating    Int      // 1-5 étoiles
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model Discussion {
+  id        String    @id @default(cuid())
+  moduleId  String
+  userId    String
+  parentId  String?   // Pour les réponses (fil de discussion)
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+
+  module  Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Discussion?  @relation("DiscussionReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Discussion[] @relation("DiscussionReplies")
+}

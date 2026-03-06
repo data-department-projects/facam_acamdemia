@@ -1,0 +1,48 @@
+{
+  "name": "facam-academia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plateforme e-learning FACAM ACADEMIA - formations industrielles pour jeunes diplômés",
+  "scripts": {
+    "dev": "npx turbo run dev",
+    "build": "npx turbo run build",
+    "lint": "npx turbo run lint",
+    "lint:fix": "npx turbo run lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "test": "npx turbo run test",
+    "test:unit": "npx turbo run test:unit",
+    "test:e2e": "npx turbo run test:e2e",
+    "clean": "npx turbo run clean --force",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "husky": "^9.0.0",
+    "rxjs": "^7.8.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.2.0",
+    "turbo": "^2.3.0",
+    "typescript": "~5.6.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "npm@10.9.0",
+  "engines": {
+    "node": ">=20"
+  }
+}
