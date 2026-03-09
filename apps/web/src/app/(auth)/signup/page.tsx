@@ -1,126 +1,40 @@
 /**
- * Page d'inscription — Intégrée dans le nouveau layout split.
+ * Page d'inscription — Désactivée : les comptes sont créés par l'administrateur.
+ * Affiche un message explicatif et redirige vers la connexion.
  */
 
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import type { UserRole } from '@/types';
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('student');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    // Simulation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    router.push('/login');
-  };
-
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-facam-dark">Créer un compte</h2>
-        <p className="mt-2 text-gray-600">Rejoignez FACAM ACADEMIA et boostez votre carrière.</p>
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-facam-blue-tint">
+          <UserPlus className="size-8 text-facam-blue" />
+        </div>
+        <h2 className="text-2xl font-bold text-facam-dark">Inscription désactivée</h2>
+        <p className="mt-2 text-gray-600">
+          Les comptes étudiants et responsables sont créés par l&apos;administrateur de la
+          plateforme. Contactez votre administrateur pour obtenir un accès.
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <Input
-          label="Nom complet"
-          type="text"
-          placeholder="Jean Dupont"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          required
-          className="h-12"
-        />
-        <Input
-          label="Email"
-          type="email"
-          placeholder="jean@exemple.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="h-12"
-        />
-        <Input
-          label="Mot de passe"
-          type="password"
-          placeholder="Minimum 6 caractères"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          className="h-12"
-        />
+      <div className="rounded-lg border border-facam-blue/20 bg-facam-blue-tint/30 p-4 text-sm text-facam-dark">
+        <p className="font-medium">Vous avez déjà un compte ?</p>
+        <p className="mt-1 text-gray-600">
+          Connectez-vous avec l&apos;email et le mot de passe fournis par votre administrateur.
+        </p>
+      </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-facam-dark">Je suis</label>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setRole('student')}
-              className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${
-                role === 'student'
-                  ? 'border-facam-blue bg-facam-blue-tint text-facam-blue'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
-              }`}
-            >
-              Étudiant
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('module_manager')}
-              className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${
-                role === 'module_manager'
-                  ? 'border-facam-blue bg-facam-blue-tint text-facam-blue'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
-              }`}
-            >
-              Formateur
-            </button>
-          </div>
-        </div>
-
-        <Button type="submit" className="w-full h-12 text-lg" variant="accent" disabled={loading}>
-          {loading ? 'Création...' : "S'inscrire gratuitement"}
+      <Link href="/login" className="block">
+        <Button variant="accent" className="w-full h-12 text-base">
+          Se connecter
         </Button>
-      </form>
-
-      <div className="text-center text-sm text-gray-600">
-        En vous inscrivant, vous acceptez nos{' '}
-        <Link href="#" className="underline">
-          Conditions d'utilisation
-        </Link>
-        .
-      </div>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-200" />
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-2 text-gray-500">Déjà inscrit ?</span>
-        </div>
-      </div>
-
-      <div className="text-center">
-        <Link href="/login">
-          <Button variant="outline" className="w-full h-12">
-            Se connecter
-          </Button>
-        </Link>
-      </div>
+      </Link>
     </div>
   );
 }

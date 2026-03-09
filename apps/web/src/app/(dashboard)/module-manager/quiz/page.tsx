@@ -1,58 +1,51 @@
 /**
- * Création et gestion des quiz : par chapitre, seuils de validation.
- * Liste des quiz existants et formulaire d'édition (mock).
+ * Quiz — Redirection vers la gestion des quiz par module.
+ * Les quiz sont gérés dans le contexte de chaque module (Module > Gérer les quiz).
  */
 
-import { FileQuestion, Edit, Settings } from 'lucide-react';
+'use client';
+
+import Link from 'next/link';
+import { FileQuestion, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { MOCK_QUIZ } from '@/data/mock';
+import { MOCK_MODULES } from '@/data/mock';
 
 export default function ModuleManagerQuizPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Quiz</h1>
-        <Button>
-          <FileQuestion className="mr-2 size-4" />
-          Nouveau quiz
-        </Button>
-      </div>
-      <p className="text-slate-600">
-        Configurez les quiz par chapitre (QCM, vrai/faux, questions ouvertes) et le score minimum
-        pour valider.
+      <h1 className="text-2xl font-bold text-facam-dark">Quiz</h1>
+      <p className="text-gray-600">
+        Les quiz sont rattachés à un module et à un chapitre (ou au quiz final). Sélectionnez un
+        module pour gérer ses quiz.
       </p>
 
-      <Card>
+      <Card className="border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle>Quiz existants</CardTitle>
+          <CardTitle className="text-base">Modules</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-facam-blue-tint p-2">
-                <FileQuestion className="size-5 text-facam-blue" />
+          {MOCK_MODULES.map((mod) => (
+            <Link
+              key={mod.id}
+              href={`/module-manager/modules/${mod.id}/quiz`}
+              className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-facam-blue-tint p-2">
+                  <FileQuestion className="size-5 text-facam-blue" />
+                </div>
+                <div>
+                  <p className="font-medium text-facam-dark">{mod.title}</p>
+                  <p className="text-sm text-gray-500">Quiz par chapitre + quiz final</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-slate-900">{MOCK_QUIZ.title}</p>
-                <p className="text-sm text-slate-500">
-                  {MOCK_QUIZ.questions.length} questions · Seuil : {MOCK_QUIZ.minScoreToPass} %
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
               <Button variant="outline" size="sm">
-                <Edit className="mr-1 size-4" /> Éditer
+                Gérer les quiz
+                <ArrowRight className="ml-1 size-4" />
               </Button>
-              <Button variant="ghost" size="sm">
-                <Settings className="size-4" />
-              </Button>
-            </div>
-          </div>
-          <p className="text-sm text-slate-500">
-            Création de questions (QCM, vrai/faux, ouvert) et liaison chapitre → quiz à implémenter
-            avec le backend.
-          </p>
+            </Link>
+          ))}
         </CardContent>
       </Card>
     </div>

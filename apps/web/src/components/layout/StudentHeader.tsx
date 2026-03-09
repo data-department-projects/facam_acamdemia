@@ -135,7 +135,7 @@ export function StudentHeader({ user }: { user: { fullName: string; email: strin
                     onClick={() => setMyLearningOpen(false)}
                     className="block mt-4"
                   >
-                    <Button className="w-full font-bold" variant="primary" size="lg">
+                    <Button className="w-full font-bold" variant="accent" size="lg">
                       Aller à Mon apprentissage
                     </Button>
                   </Link>

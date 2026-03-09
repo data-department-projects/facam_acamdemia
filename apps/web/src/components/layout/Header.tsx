@@ -81,18 +81,11 @@ export function Header({
             </Link>
           </>
         ) : (
-          <>
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Connexion
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button variant="accent" size="sm">
-                Inscription
-              </Button>
-            </Link>
-          </>
+          <Link href="/login">
+            <Button variant="accent" size="sm">
+              Connexion
+            </Button>
+          </Link>
         )}
       </div>
     </header>

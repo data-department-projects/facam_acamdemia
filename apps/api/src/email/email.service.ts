@@ -1,10 +1,11 @@
 /**
- * Service d'envoi d'emails via Resend.
+ * Service d'envoi d'emails via Nodemailer (SMTP Gmail).
  * Utilisé pour l'OTP de réinitialisation mot de passe (template style FACAM).
  */
 
 import { Injectable } from '@nestjs/common';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 const DUREE_OTP_MINUTES = 3;
 
@@ -76,15 +77,26 @@ function genererHtmlOtp(code: string, logoUrl: string): string {
 
 @Injectable()
 export class EmailService {
-  private readonly resend: Resend;
-  private readonly from: string;
+  private readonly transporter: Transporter | null = null;
+  private readonly fromName: string;
+  private readonly fromEmail: string;
   private readonly logoUrl: string;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY;
-    this.resend = apiKey ? new Resend(apiKey) : (null as unknown as Resend);
-    this.from = process.env.RESEND_FROM_EMAIL ?? 'FACAM ACADEMIA <onboarding@resend.dev>';
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    this.fromName = process.env.EMAIL_FROM_NAME ?? 'facam_academia';
+    this.fromEmail = user ?? '';
     this.logoUrl = process.env.APP_LOGO_URL ?? '';
+
+    if (user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT ?? '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: { user, pass },
+      });
+    }
   }
 
   /**
@@ -94,20 +106,18 @@ export class EmailService {
     email: string,
     code: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.resend) {
-      return { success: false, error: 'RESEND_API_KEY non configuré' };
+    if (!this.transporter || !this.fromEmail) {
+      return { success: false, error: 'SMTP non configuré (SMTP_USER / SMTP_PASS)' };
     }
     const html = genererHtmlOtp(code, this.logoUrl);
+    const from = `${this.fromName} <${this.fromEmail}>`;
     try {
-      const { error } = await this.resend.emails.send({
-        from: this.from,
-        to: [email],
+      await this.transporter.sendMail({
+        from,
+        to: email,
         subject: 'FACAM ACADEMIA — Code de réinitialisation (3 min)',
         html,
       });
-      if (error) {
-        return { success: false, error: error.message };
-      }
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur envoi email';

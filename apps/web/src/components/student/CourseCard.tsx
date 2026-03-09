@@ -48,7 +48,7 @@ export function CourseCard({ course, showProgress = false, compact = false }: Co
           {showProgress && (
             <div className="w-full bg-gray-200 h-1.5 rounded-full mt-2">
               <div
-                className="bg-facam-blue h-1.5 rounded-full transition-all"
+                className="bg-facam-yellow h-1.5 rounded-full transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -85,7 +85,7 @@ export function CourseCard({ course, showProgress = false, compact = false }: Co
       {showProgress && (
         <>
           <div className="w-full bg-gray-200 h-1.5 rounded-full mb-2">
-            <div className="bg-facam-blue h-1.5 rounded-full" style={{ width: `${progress}%` }} />
+            <div className="bg-facam-yellow h-1.5 rounded-full" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-gray-500">{progress}% terminé</p>
         </>

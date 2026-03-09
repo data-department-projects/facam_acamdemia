@@ -11,7 +11,6 @@ import {
   BookOpen,
   FileQuestion,
   Users,
-  Settings,
   AlertCircle,
   GraduationCap,
   FolderOpen,
@@ -36,7 +35,6 @@ const moduleManagerNav = [
 const adminNav = [
   { href: '/admin', label: 'Dashboard global', icon: LayoutDashboard },
   { href: '/admin/users', label: 'Gestion utilisateurs', icon: Users },
-  { href: '/admin/settings', label: 'Paramètres', icon: Settings },
 ];
 
 const supportNav = [

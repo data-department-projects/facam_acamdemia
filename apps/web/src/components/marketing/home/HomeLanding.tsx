@@ -254,9 +254,9 @@ export function HomeLanding() {
 
             <Reveal delay={0.28}>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link href="/signup" className="inline-flex">
+                <Link href="/login" className="inline-flex">
                   <Button variant="accent" size="lg" className="px-7">
-                    Commencer maintenant <ArrowRight />
+                    Se connecter <ArrowRight />
                   </Button>
                 </Link>
                 <Link href="#programmes" className="inline-flex">
@@ -349,9 +349,9 @@ export function HomeLanding() {
               cours jusqu’au certificat.
             </p>
             <div className="mt-6">
-              <Link href="/signup">
+              <Link href="/login">
                 <Button variant="primary">
-                  Créer un compte <ArrowRight />
+                  Se connecter <ArrowRight />
                 </Button>
               </Link>
             </div>
@@ -571,16 +571,14 @@ export function HomeLanding() {
               </div>
               <div className="lg:col-span-4 lg:justify-self-end">
                 <div className="flex flex-col gap-3">
-                  <Link href="/signup" className="inline-flex">
-                    <Button variant="accent" size="lg" className="w-full">
-                      Créer un compte <ArrowRight />
-                    </Button>
-                  </Link>
                   <Link href="/login" className="inline-flex">
-                    <Button variant="outline" size="lg" className="w-full">
-                      J’ai déjà un compte
+                    <Button variant="accent" size="lg" className="w-full">
+                      Se connecter <ArrowRight />
                     </Button>
                   </Link>
+                  <p className="text-sm text-gray-500 text-center">
+                    Les comptes sont créés par l&apos;administrateur.
+                  </p>
                 </div>
                 <p className="mt-3 text-center text-xs text-gray-500">
                   Aucun paiement requis pour découvrir la plateforme.
@@ -607,11 +605,6 @@ export function HomeLanding() {
                 <li>
                   <Link href="#programmes" className="hover:text-white">
                     Programmes
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/signup" className="hover:text-white">
-                    Inscription
                   </Link>
                 </li>
                 <li>

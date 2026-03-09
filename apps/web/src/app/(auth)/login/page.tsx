@@ -1,6 +1,6 @@
 /**
- * Page de connexion — Formulaire e-mail / mot de passe.
- * Comptes créés par l'administration (pas d'inscription publique).
+ * Page de connexion — Appel API POST /auth/login puis fallback comptes démo si API indisponible.
+ * Stocke le JWT et l'utilisateur (facam_token, facam_user) pour le reste de l'app.
  */
 
 'use client';
@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { setAuthSession, ROLE_HOME } from '@/lib/auth';
+import { api, setAccessToken } from '@/lib/api-client';
 import type { UserRole } from '@/types';
 
 const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole; fullName: string }> = {
@@ -23,13 +25,16 @@ const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole; fullName
   'support@facam.com': { password: 'demo123', role: 'support', fullName: 'Support Demo' },
 };
 
-const ROLE_HOME: Record<UserRole, string> = {
-  student: '/student',
-  module_manager: '/module-manager',
-  admin: '/admin',
-  support: '/support',
-  platform_manager: '/admin',
-};
+interface LoginResponse {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    firstLoginAt: string | null;
+  };
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,42 +48,66 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const emailTrimmed = email.trim().toLowerCase();
 
-    const account = DEMO_ACCOUNTS[email.trim().toLowerCase()];
+    try {
+      const res = await api.post<LoginResponse>('/auth/login', {
+        email: emailTrimmed,
+        password,
+      });
+      setAccessToken(res.accessToken);
+      setAuthSession(
+        {
+          id: res.user.id,
+          email: res.user.email,
+          fullName: res.user.fullName,
+          role: res.user.role as UserRole,
+          firstLoginAt: res.user.firstLoginAt,
+        },
+        res.accessToken
+      );
+      router.push(ROLE_HOME[res.user.role as UserRole]);
+      return;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur de connexion';
+      if (typeof (err as { status?: number }).status === 'number') {
+        setError(message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Fallback : comptes démo (si API indisponible ou identifiants non reconnus)
+    const account = DEMO_ACCOUNTS[emailTrimmed];
     if (!account || account.password !== password) {
       setError('Identifiants incorrects. Essayez un compte démo.');
       setLoading(false);
       return;
     }
 
-    if (typeof window !== 'undefined') {
-      const storageKey = 'facam_user';
-      const existing = window.localStorage.getItem(storageKey);
-      let firstLoginAt: string | undefined;
-      try {
-        const parsed = existing ? JSON.parse(existing) : {};
-        const sameUser = parsed.email === email.trim().toLowerCase();
-        if (account.role === 'student') {
-          firstLoginAt =
-            sameUser && parsed.firstLoginAt ? parsed.firstLoginAt : new Date().toISOString();
-        } else {
-          firstLoginAt = undefined;
-        }
-      } catch {
-        firstLoginAt = account.role === 'student' ? new Date().toISOString() : undefined;
+    const existing =
+      typeof window !== 'undefined' ? window.localStorage.getItem('facam_user') : null;
+    let firstLoginAt: string | undefined;
+    try {
+      const parsed = existing ? JSON.parse(existing) : {};
+      const sameUser = parsed.email === emailTrimmed;
+      if (account.role === 'student') {
+        firstLoginAt =
+          sameUser && parsed.firstLoginAt ? parsed.firstLoginAt : new Date().toISOString();
+      } else {
+        firstLoginAt = undefined;
       }
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          email: email.trim(),
-          role: account.role,
-          fullName: account.fullName,
-          firstLoginAt,
-        })
-      );
+    } catch {
+      firstLoginAt = account.role === 'student' ? new Date().toISOString() : undefined;
     }
+    setAuthSession({
+      email: emailTrimmed,
+      role: account.role,
+      fullName: account.fullName,
+      firstLoginAt,
+    });
     router.push(ROLE_HOME[account.role]);
+    setLoading(false);
   };
 
   return (
@@ -126,14 +155,14 @@ export default function LoginPage() {
           </div>
         )}
 
-        <Button type="submit" className="w-full h-12 text-lg" variant="primary" disabled={loading}>
+        <Button type="submit" className="w-full h-12 text-lg" variant="accent" disabled={loading}>
           {loading ? 'Connexion...' : 'Se connecter'}
         </Button>
       </form>
 
       <div className="mt-6 p-4 bg-facam-blue-tint/50 rounded-lg text-xs text-gray-500 text-center border border-facam-blue/10">
-        <p className="font-semibold mb-1">Comptes Démo :</p>
-        etudiant@facam.com / responsable@facam.com
+        <p className="font-semibold mb-1">Comptes Démo (si API indisponible) :</p>
+        etudiant@facam.com / responsable@facam.com / admin@facam.com
         <br />
         Mot de passe : demo123
       </div>

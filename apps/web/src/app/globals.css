@@ -101,11 +101,11 @@ button {
   background: var(--gray-200);
 }
 .scroll-progress-bar::-webkit-progress-value {
-  background: var(--facam-blue);
+  background: var(--facam-yellow);
   transition: width 0.15s ease-out;
 }
 .scroll-progress-bar::-moz-progress-bar {
-  background: var(--facam-blue);
+  background: var(--facam-yellow);
 }
 
 .font-blacksword {

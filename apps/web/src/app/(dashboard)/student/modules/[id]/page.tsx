@@ -9,6 +9,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Breadcrumb } from '@/components/ui/Breadcrumb';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { CourseContentAccordion } from '@/components/student/CourseContentAccordion';
 import { MOCK_MODULES, MOCK_CHAPTERS } from '@/data/mock';
 
@@ -58,8 +60,17 @@ export default async function StudentModuleDetailPage({ params }: PageProps) {
           ? 'Avancé'
           : null;
 
+  const progressPercent = module_.progress ?? 0;
+
   return (
     <div className="bg-white min-h-screen">
+      {/* Fil d'Ariane */}
+      <div className="border-b border-gray-100 bg-gray-50">
+        <div className="container mx-auto px-4 md:px-6 py-3">
+          <Breadcrumb items={[{ label: 'Accueil', href: '/student' }, { label: module_.title }]} />
+        </div>
+      </div>
+
       {/* Bandeau principal : image + infos (style Udemy) */}
       <div className="bg-facam-dark text-white">
         <div className="container mx-auto px-4 md:px-6 py-6 md:py-8">
@@ -259,27 +270,35 @@ export default async function StudentModuleDetailPage({ params }: PageProps) {
                   )}
                 </ul>
 
-                {/* Boutons d'action */}
-                <div className="pt-2 space-y-2">
-                  {module_.progress !== undefined && module_.progress > 0 ? (
+                {/* Progression du module */}
+                {progressPercent > 0 && (
+                  <div className="pt-2">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>Votre progression</span>
+                      <span>{progressPercent} %</span>
+                    </div>
+                    <ProgressBar value={progressPercent} height="sm" showLabel={false} />
+                  </div>
+                )}
+
+                {/* Boutons d'action — jaune (accent) pour CTA principal */}
+                <div className="pt-4 space-y-2">
+                  {progressPercent > 0 ? (
                     <>
                       <Link href={`/student/modules/${id}/chapitre/1`} className="block">
                         <Button
-                          variant="primary"
+                          variant="accent"
                           size="lg"
                           className="w-full font-bold text-base py-3"
                         >
                           Reprendre là où j&apos;en étais
                         </Button>
                       </Link>
-                      <p className="text-center text-sm text-gray-500">
-                        Progression : {module_.progress} %
-                      </p>
                     </>
                   ) : (
                     <Link href={`/student/modules/${id}/chapitre/1`} className="block">
                       <Button
-                        variant="primary"
+                        variant="accent"
                         size="lg"
                         className="w-full font-bold text-base py-3"
                       >

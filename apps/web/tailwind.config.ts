@@ -35,6 +35,7 @@ const config: Config = {
       boxShadow: {
         facam: '0 4px 14px 0 rgba(0, 27, 97, 0.15)',
         'facam-lg': '0 10px 40px -10px rgba(0, 27, 97, 0.2)',
+        'facam-yellow': '0 4px 14px 0 rgba(255, 174, 3, 0.25)',
       },
     },
   },

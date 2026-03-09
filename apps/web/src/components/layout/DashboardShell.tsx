@@ -9,15 +9,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StudentLayout } from '@/components/layout/StudentLayout';
-import type { UserRole } from '@/types';
-
-interface StoredUser {
-  email: string;
-  role: UserRole;
-  fullName: string;
-  /** Date de première connexion (ISO) — pour le compte à rebours 30 jours */
-  firstLoginAt?: string | null;
-}
+import { getStoredUser, type StoredUser } from '@/lib/auth';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -32,17 +24,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-    const raw = typeof window !== 'undefined' ? window.localStorage.getItem('facam_user') : null;
-    if (!raw) {
+    const u = getStoredUser();
+    if (!u) {
       router.replace('/login');
       return;
     }
-    try {
-      const u = JSON.parse(raw) as StoredUser;
-      setUser(u);
-    } catch {
-      router.replace('/login');
-    }
+    setUser(u);
   }, [mounted, pathname, router]);
 
   const handleMenuClick = () => setSidebarOpen((o) => !o);
