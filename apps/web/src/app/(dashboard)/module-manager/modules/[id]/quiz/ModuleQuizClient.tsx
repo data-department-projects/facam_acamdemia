@@ -1,23 +1,57 @@
 /**
- * Client pour la page Quiz du module — Liste des quiz par chapitre + quiz final.
+ * Client pour la page Quiz du module — Données depuis l’API (formations/:id, chapitres/module/:id).
+ * Liste des quiz par chapitre + quiz final.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, FileQuestion, Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { QuizBuilder, type QuizQuestionForm } from '@/components/module-manager/QuizBuilder';
-import { MOCK_MODULES, MOCK_CHAPTERS } from '@/data/mock';
+import { api } from '@/lib/api-client';
+
+interface ApiModule {
+  id: string;
+  title: string;
+}
+
+interface ApiChapter {
+  id: string;
+  title: string;
+  order: number;
+  quizzes?: { id: string }[];
+}
 
 export function ModuleQuizClient({ moduleId }: { moduleId: string }) {
-  const mod = MOCK_MODULES.find((m) => m.id === moduleId);
-  const modChapters = MOCK_CHAPTERS.filter((c) => c.moduleId === moduleId).sort(
-    (a, b) => a.order - b.order
-  );
+  const [mod, setMod] = useState<ApiModule | null>(null);
+  const [modChapters, setModChapters] = useState<ApiChapter[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [moduleRes, chaptersRes] = await Promise.all([
+        api.get<ApiModule>(`/formations/${moduleId}`),
+        api.get<ApiChapter[]>(`/chapitres/module/${moduleId}`),
+      ]);
+      setMod(moduleRes);
+      setModChapters(
+        Array.isArray(chaptersRes) ? chaptersRes.sort((a, b) => a.order - b.order) : []
+      );
+    } catch {
+      setMod(null);
+      setModChapters([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [moduleId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const [quizModal, setQuizModal] = useState<'chapter' | 'final' | null>(null);
   const [quizTargetChapterTitle, setQuizTargetChapterTitle] = useState('');
@@ -42,6 +76,13 @@ export function ModuleQuizClient({ moduleId }: { moduleId: string }) {
     setQuizModal(null);
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <p className="text-gray-500">Chargement du module et des chapitres…</p>
+      </div>
+    );
+  }
   if (!mod) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
@@ -96,7 +137,7 @@ export function ModuleQuizClient({ moduleId }: { moduleId: string }) {
                   </div>
                   <Button variant="outline" size="sm" onClick={() => openQuizForChapter(ch)}>
                     <FileQuestion className="mr-1 size-4" />
-                    {ch.quizId ? 'Modifier' : 'Créer'}
+                    {(ch.quizzes?.length ?? 0) > 0 ? 'Modifier' : 'Créer'}
                   </Button>
                 </div>
               ))

@@ -8,25 +8,46 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, PlayCircle, Star } from 'lucide-react';
-import { MOCK_MODULES } from '@/data/mock';
+import { api } from '@/lib/api-client';
 
 const TABS = [
   { id: 'all', label: 'Tous les cours' },
   { id: 'certs', label: 'Certifications' },
 ] as const;
 
+interface ApiModule {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  progress?: number;
+}
+
 export default function MyLearningPage() {
   const [activeTab, setActiveTab] = useState<string>('all');
-  // Tri : Récemment consultés (placeholder pour future API)
+  const [myCourses, setMyCourses] = useState<ApiModule[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock : cours de l'étudiant (avec progression)
-  const myCourses = MOCK_MODULES.filter(
-    (m) => m.id === '1' || m.id === '2' || m.id === '3' || m.id === '4'
-  );
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ data: ApiModule[] }>('/formations?limit=50')
+      .then((res) => {
+        if (!cancelled) setMyCourses(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMyCourses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-facam-dark">
@@ -126,62 +147,71 @@ export default function MyLearningPage() {
           </p>
 
           {/* Grille de cours */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {myCourses.map((course) => (
-              <div
-                key={course.id}
-                className="border border-gray-200 bg-white group hover:shadow-md transition-shadow rounded-lg overflow-hidden"
-              >
-                <Link href={`/student/modules/${course.id}`} className="block">
-                  <div className="relative h-40 w-full bg-gray-200">
-                    <Image
-                      src={course.imageUrl}
-                      alt={course.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PlayCircle className="size-12 text-white" strokeWidth={1.5} />
+          {loading ? (
+            <p className="text-gray-500">Chargement de vos cours…</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {myCourses.map((course) => (
+                <div
+                  key={course.id}
+                  className="border border-gray-200 bg-white group hover:shadow-md transition-shadow rounded-lg overflow-hidden"
+                >
+                  <Link href={`/student/modules/${course.id}`} className="block">
+                    <div className="relative h-40 w-full bg-gray-200">
+                      <Image
+                        src={course.imageUrl || '/placeholder-course.jpg'}
+                        alt={course.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <PlayCircle className="size-12 text-white" strokeWidth={1.5} />
+                      </div>
                     </div>
-                  </div>
-                </Link>
-                <div className="p-4">
-                  <Link href={`/student/modules/${course.id}`}>
-                    <h3 className="font-bold text-facam-dark line-clamp-2 mb-2 group-hover:text-facam-blue transition-colors">
-                      {course.title}
-                    </h3>
                   </Link>
-                  <p className="text-xs text-gray-500 mb-3">FACAM ACADEMIA</p>
-                  <div className="w-full bg-gray-200 h-1.5 rounded-full mb-2">
-                    <div
-                      className="bg-facam-blue h-1.5 rounded-full transition-all"
-                      style={{ width: `${course.progress ?? 0}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-500">
-                      {course.progress === 100
-                        ? '100% terminés'
-                        : `${course.progress ?? 0}% terminés`}
-                    </span>
-                    <div className="flex items-center gap-1 text-facam-yellow">
-                      <Star className="size-3 fill-current" />
-                      <span className="text-gray-500">Votre note</span>
+                  <div className="p-4">
+                    <Link href={`/student/modules/${course.id}`}>
+                      <h3 className="font-bold text-facam-dark line-clamp-2 mb-2 group-hover:text-facam-blue transition-colors">
+                        {course.title}
+                      </h3>
+                    </Link>
+                    <p className="text-xs text-gray-500 mb-3">FACAM ACADEMIA</p>
+                    <div className="w-full bg-gray-200 h-1.5 rounded-full mb-2">
+                      <div
+                        className="bg-facam-blue h-1.5 rounded-full transition-all"
+                        style={{ width: `${course.progress ?? 0}%` }}
+                      />
                     </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-500">
+                        {course.progress === 100
+                          ? '100% terminés'
+                          : `${course.progress ?? 0}% terminés`}
+                      </span>
+                      <div className="flex items-center gap-1 text-facam-yellow">
+                        <Star className="size-3 fill-current" />
+                        <span className="text-gray-500">Votre note</span>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/student/modules/${course.id}/chapitre/1`}
+                      className="mt-4 pt-4 border-t border-gray-100 block text-center text-xs font-bold text-facam-dark uppercase tracking-wide hover:text-facam-blue transition-colors"
+                    >
+                      {course.progress && course.progress > 0
+                        ? 'Reprendre le cours'
+                        : 'Commencer le cours'}
+                    </Link>
                   </div>
-                  <Link
-                    href={`/student/modules/${course.id}/chapitre/1`}
-                    className="mt-4 pt-4 border-t border-gray-100 block text-center text-xs font-bold text-facam-dark uppercase tracking-wide hover:text-facam-blue transition-colors"
-                  >
-                    {course.progress && course.progress > 0
-                      ? 'Reprendre le cours'
-                      : 'Commencer le cours'}
-                  </Link>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+          {!loading && myCourses.length === 0 && (
+            <p className="text-gray-500">
+              Aucun cours. Inscrivez-vous à un module depuis le catalogue.
+            </p>
+          )}
         </div>
       </div>
     </div>

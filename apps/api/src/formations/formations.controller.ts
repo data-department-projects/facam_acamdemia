@@ -39,7 +39,8 @@ export class FormationsController {
   trouverTous(
     @CurrentUser() user: UtilisateurPayload,
     @Query('page') page = '1',
-    @Query('limit') limit = '20'
+    @Query('limit') limit = '20',
+    @Query('catalogue') catalogue?: string
   ) {
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
@@ -48,6 +49,7 @@ export class FormationsController {
       role: user.role,
       page: pageNum,
       limit: limitNum,
+      catalogue: catalogue === '1' || catalogue === 'true',
     });
   }
 

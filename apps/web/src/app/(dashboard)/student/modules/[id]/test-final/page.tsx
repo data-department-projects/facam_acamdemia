@@ -1,46 +1,61 @@
 /**
- * Test final du module : même principe que le quiz, score et validation.
- * Après succès : lien vers téléchargement du certificat.
+ * Test final du module — Données depuis GET /formations/:id (finalQuizId) puis GET /quiz/:id.
+ * Soumission via POST /quiz/:id/submit. Après succès : lien vers certificat.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { MOCK_QUIZ, MOCK_MODULES } from '@/data/mock';
-import type { QuizQuestion } from '@/types';
+import { api } from '@/lib/api-client';
 
-const MIN_SCORE_FINAL = 70;
+interface ApiQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+  order: number;
+}
+
+interface ApiQuiz {
+  id: string;
+  title: string;
+  isFinal?: boolean;
+  minScoreToPass: number;
+  questions: ApiQuestion[];
+}
+
+interface ApiModule {
+  id: string;
+  title: string;
+  finalQuizId?: string | null;
+}
 
 function QuestionBlock({
   question,
-  selected,
+  selectedIndex,
   onSelect,
-  disabled,
 }: {
-  question: QuizQuestion;
-  selected: string | null;
-  onSelect: (value: string) => void;
-  disabled?: boolean;
+  question: ApiQuestion;
+  selectedIndex: number | null;
+  onSelect: (index: number) => void;
 }) {
-  const options = question.options ?? ['Vrai', 'Faux'];
+  const options = question.options ?? [];
   return (
     <div className="space-y-3">
-      <p className="font-medium text-slate-900">{question.question}</p>
-      <ul className="space-y-2" role="radiogroup" aria-label={question.question}>
-        {options.map((opt) => (
-          <li key={opt}>
+      <p className="font-medium text-slate-900">{question.questionText}</p>
+      <ul className="space-y-2" role="radiogroup" aria-label={question.questionText}>
+        {options.map((opt, idx) => (
+          <li key={idx}>
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-facam-blue has-[:checked]:bg-facam-blue-tint">
               <input
                 type="radio"
                 name={`q-${question.id}`}
-                value={opt}
-                checked={selected === opt}
-                onChange={() => onSelect(opt)}
-                disabled={disabled}
+                value={idx}
+                checked={selectedIndex === idx}
+                onChange={() => onSelect(idx)}
                 className="size-4 text-facam-blue"
                 aria-label={opt}
               />
@@ -53,26 +68,93 @@ function QuestionBlock({
   );
 }
 
+const MIN_SCORE_FINAL = 70;
+
 export default function StudentTestFinalPage() {
   const params = useParams();
   const moduleId = params.id as string;
+
+  const [module_, setModule_] = useState<ApiModule | null>(null);
+  const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<{
+    scorePercent: number | null;
+    passed: boolean | null;
+  } | null>(null);
 
-  const questions = MOCK_QUIZ.questions;
-  const current = questions[currentIndex];
-  const module_ = MOCK_MODULES.find((m) => m.id === moduleId);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<ApiModule>(`/formations/${moduleId}`)
+      .then((mod) => {
+        if (cancelled) return;
+        setModule_(mod);
+        return mod.finalQuizId;
+      })
+      .then((finalQuizId) => {
+        if (cancelled || !finalQuizId) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        return Promise.all([
+          api.get<ApiQuiz>(`/quiz/${finalQuizId}`),
+          api.get<{ id: string; moduleId: string }[]>('/enrollments').then((list) => {
+            const arr = Array.isArray(list) ? list : [];
+            const en = arr.find((e) => e.moduleId === moduleId);
+            return en?.id ?? null;
+          }),
+        ]).then(([q, enId]) => {
+          if (!cancelled) {
+            setQuiz(q);
+            setEnrollmentId(enId);
+            setAnswers(new Array((q.questions ?? []).length).fill(-1));
+          }
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setQuiz(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduleId]);
 
-  const handleSelect = (questionId: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
+  const handleSelect = (questionIndex: number, value: number) => {
+    setAnswers((prev) => {
+      const next = [...prev];
+      next[questionIndex] = value;
+      return next;
+    });
   };
 
   const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
+    if (!quiz) return;
+    if (currentIndex < quiz.questions.length - 1) {
       setCurrentIndex((i) => i + 1);
     } else {
-      setSubmitted(true);
+      setSubmitting(true);
+      api
+        .post<{ attemptId: string; scorePercent: number | null; passed: boolean | null }>(
+          `/quiz/${quiz.id}/submit`,
+          {
+            answers: quiz.questions.map((_, i) => answers[i] ?? -1),
+            ...(enrollmentId ? { enrollmentId } : {}),
+          }
+        )
+        .then((res) => {
+          setResult(res);
+          setSubmitted(true);
+        })
+        .catch(() => setSubmitting(false))
+        .finally(() => setSubmitting(false));
     }
   };
 
@@ -80,20 +162,28 @@ export default function StudentTestFinalPage() {
     if (currentIndex > 0) setCurrentIndex((i) => i - 1);
   };
 
-  const score = submitted
-    ? Math.round(
-        (questions.filter(
-          (q) =>
-            answers[q.id] ===
-            (Array.isArray(q.correctAnswer) ? q.correctAnswer[0] : q.correctAnswer)
-        ).length /
-          questions.length) *
-          100
-      )
-    : 0;
-  const passed = score >= MIN_SCORE_FINAL;
+  if (loading && !quiz) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <p className="text-slate-600">Chargement du test final…</p>
+      </div>
+    );
+  }
 
-  if (submitted) {
+  if (!module_?.finalQuizId || (!quiz && !submitted)) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <p className="text-slate-600">Aucun test final pour ce module.</p>
+        <Link href={`/student/modules/${moduleId}`}>
+          <Button variant="outline">Retour au module</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (submitted && result !== null) {
+    const score = result.scorePercent ?? 0;
+    const passed = result.passed ?? false;
     return (
       <div className="mx-auto max-w-lg space-y-6">
         <Card>
@@ -120,8 +210,9 @@ export default function StudentTestFinalPage() {
                 <Button
                   onClick={() => {
                     setSubmitted(false);
+                    setResult(null);
                     setCurrentIndex(0);
-                    setAnswers({});
+                    setAnswers(new Array(quiz?.questions.length ?? 0).fill(-1));
                   }}
                 >
                   Réessayer
@@ -134,7 +225,19 @@ export default function StudentTestFinalPage() {
     );
   }
 
-  if (!current) return null;
+  if (!quiz || quiz.questions.length === 0) {
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <p className="text-slate-600">Test final introuvable ou sans questions.</p>
+        <Link href={`/student/modules/${moduleId}`}>
+          <Button variant="outline">Retour au module</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const current = quiz.questions[currentIndex];
+  const currentAnswer = answers[currentIndex] ?? -1;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -142,14 +245,14 @@ export default function StudentTestFinalPage() {
         Test final {module_ ? `— ${module_.title}` : ''}
       </h1>
       <p className="text-slate-600">
-        Question {currentIndex + 1} / {questions.length}
+        Question {currentIndex + 1} / {quiz.questions.length}
       </p>
       <Card>
         <CardContent className="pt-6">
           <QuestionBlock
             question={current}
-            selected={answers[current.id] ?? null}
-            onSelect={(value) => handleSelect(current.id, value)}
+            selectedIndex={currentAnswer === -1 ? null : currentAnswer}
+            onSelect={(idx) => handleSelect(currentIndex, idx)}
           />
         </CardContent>
       </Card>
@@ -157,8 +260,8 @@ export default function StudentTestFinalPage() {
         <Button variant="outline" onClick={handlePrev} disabled={currentIndex === 0}>
           Précédent
         </Button>
-        <Button onClick={handleNext} disabled={!answers[current.id]}>
-          {currentIndex === questions.length - 1 ? 'Terminer le test' : 'Suivant'}
+        <Button onClick={handleNext} disabled={currentAnswer < 0 || submitting}>
+          {currentIndex === quiz.questions.length - 1 ? 'Terminer le test' : 'Suivant'}
         </Button>
       </div>
     </div>

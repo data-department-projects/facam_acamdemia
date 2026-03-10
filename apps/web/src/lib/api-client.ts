@@ -15,12 +15,19 @@ export interface ApiError {
 /**
  * Récupère le token JWT stocké (localStorage côté client).
  * À appeler uniquement dans un contexte où window est défini.
+ * Accepte un token stocké en chaîne brute ou en JSON.
  */
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem('facam_token');
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return typeof parsed === 'string' ? parsed : null;
+    } catch {
+      return raw;
+    }
   } catch {
     return null;
   }
@@ -51,8 +58,22 @@ interface RequestConfig extends Omit<RequestInit, 'body'> {
 }
 
 /**
+ * Message d'erreur lisible pour les échecs réseau (évite d'afficher "Failed to fetch" brut).
+ */
+function normalizeNetworkError(error: unknown): Error {
+  const message =
+    error instanceof TypeError && error.message === 'Failed to fetch'
+      ? "Serveur inaccessible. Vérifiez que l'API est démarrée et que NEXT_PUBLIC_API_URL est correct."
+      : error instanceof Error
+        ? error.message
+        : 'Erreur réseau';
+  return new Error(message);
+}
+
+/**
  * Effectue une requête vers l'API avec Authorization Bearer si token présent.
  * Lance une erreur avec status et message en cas de réponse non OK.
+ * Gère les erreurs réseau (Failed to fetch) et les réponses non-JSON.
  */
 export async function apiRequest<T>(path: string, config: RequestConfig = {}): Promise<T> {
   const { body, token, headers: customHeaders, ...rest } = config;
@@ -63,23 +84,46 @@ export async function apiRequest<T>(path: string, config: RequestConfig = {}): P
   if (body && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-  const authToken = token ?? (typeof window !== 'undefined' ? getAccessToken() : null);
+  let authToken: string | null = null;
+  try {
+    authToken = token ?? (typeof window !== 'undefined' ? getAccessToken() : null);
+  } catch {
+    // localStorage invalide ou JSON.parse du token a échoué
+  }
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
-  const res = await fetch(url, {
-    ...rest,
-    headers,
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...rest,
+      headers,
+      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    });
+  } catch (e) {
+    throw normalizeNetworkError(e);
+  }
+
+  let data: unknown;
+  try {
+    const text = await res.text();
+    data = text.length ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
+
   if (!res.ok) {
     const message =
-      typeof data.message === 'string'
-        ? data.message
-        : Array.isArray(data.message)
-          ? data.message.join(', ')
-          : res.statusText || 'Erreur réseau';
+      typeof (data as { message?: string | string[] }).message === 'string'
+        ? (data as { message: string }).message
+        : Array.isArray((data as { message?: string[] }).message)
+          ? (data as { message: string[] }).message.join(', ')
+          : res.status === 401
+            ? 'Session expirée ou non authentifié. Reconnectez-vous.'
+            : res.status >= 500
+              ? 'Erreur serveur. Réessayez plus tard.'
+              : res.statusText || 'Erreur réseau';
     const err = new Error(message) as Error & { status: number; data: ApiError };
     err.status = res.status;
     err.data = data as ApiError;

@@ -33,7 +33,8 @@ import { Hero3D } from '@/components/ui/Hero3D';
 import { Reveal } from '@/components/marketing/home/Reveal';
 import { ScrollProgress } from '@/components/marketing/home/ScrollProgress';
 
-const HERO_IMAGE = '/image%20hero.jpg';
+/** Image hero en fond (fichier public "image hero.jpg" — espace encodé pour l’URL) */
+const HERO_BG_IMAGE = '/image%20hero.jpg';
 
 const TRUST_CHIPS = [
   { label: 'Certifications', icon: Award },
@@ -78,23 +79,24 @@ const STATS = [
   { value: '30 j', label: 'Accès flexible', icon: Clock },
 ];
 
+/** Programmes phares — chemins vers les images dans public (maintenance.jpg, production.jpg, qhse.jpg) */
 const FEATURED_PROGRAMS = [
   {
     title: 'Maintenance industrielle',
     description: 'Préventive, corrective, diagnostic et méthodes.',
-    image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=900&h=650&fit=crop',
+    image: '/maintenance.jpg',
     meta: { hours: 12, rating: 4.8, learners: '2,5k' },
   },
   {
     title: 'Production & Logistique',
     description: 'Lean, 5S, gestion des flux et pilotage des stocks.',
-    image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=900&h=650&fit=crop',
+    image: '/production.jpg',
     meta: { hours: 10, rating: 4.6, learners: '1,8k' },
   },
   {
     title: 'QHSE - Qualité Sécurité',
     description: 'ISO, risques, audits et culture sécurité.',
-    image: 'https://images.unsplash.com/photo-1569931721096-b8c4d011d2b8?w=900&h=650&fit=crop',
+    image: '/qhse.jpg',
     meta: { hours: 15, rating: 4.7, learners: '3,2k' },
   },
 ];
@@ -210,19 +212,27 @@ export function HomeLanding() {
       <ScrollProgress />
       <Header user={null} />
 
-      {/* HERO — inspiré SaaS premium: texte + preuves sociales + visuel, fond animé */}
-      <section className="relative overflow-hidden bg-facam-dark text-white">
-        <div className="absolute inset-0 opacity-80">
+      {/* HERO — image en fond derrière le bleu, sculptures et orbes conservés, rendu harmonieux */}
+      <section className="relative min-h-[88vh] overflow-hidden bg-facam-dark text-white">
+        {/* Couche 1 : image de fond (modules / visuel public) */}
+        <div className="absolute inset-0 z-0">
+          <Image src={HERO_BG_IMAGE} alt="" fill className="object-cover" priority sizes="100vw" />
+          <div
+            className="absolute inset-0 bg-gradient-to-r from-facam-dark via-facam-dark/92 to-facam-dark/75"
+            aria-hidden
+          />
+        </div>
+        {/* Couche 2 : sculptures 3D et orbes (éléments visuels existants) */}
+        <div className="absolute inset-0 z-[1] opacity-70">
           <Hero3D />
         </div>
-
-        <div className="absolute inset-0">
+        <div className="pointer-events-none absolute inset-0 z-[1]">
           <div className="absolute -top-24 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-facam-yellow/15 blur-3xl" />
-          <div className="absolute -bottom-28 -left-24 h-[420px] w-[420px] rounded-full bg-facam-blue-mid/55 blur-3xl" />
+          <div className="absolute -bottom-28 -left-24 h-[420px] w-[420px] rounded-full bg-facam-blue-mid/50 blur-3xl" />
         </div>
-
-        <div className="container-custom relative z-10 grid min-h-[86vh] grid-cols-1 items-center gap-10 py-16 lg:grid-cols-12 lg:py-20">
-          <div className="lg:col-span-7">
+        {/* Contenu */}
+        <div className="container-custom relative z-10 flex min-h-[88vh] flex-col justify-center py-20">
+          <div className="mx-auto max-w-3xl text-center">
             <Reveal>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90">
                 <Sparkles className="size-4 text-facam-yellow" aria-hidden />
@@ -231,31 +241,31 @@ export function HomeLanding() {
             </Reveal>
 
             <Reveal delay={0.08}>
-              <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
                 Formez-vous, validez, <span className="text-facam-yellow">certifiez-vous</span>.
                 <br />
                 Accélérez votre carrière avec {APP_NAME}.
               </h1>
             </Reveal>
 
-            <Reveal delay={0.16}>
-              <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg">
+            <Reveal delay={0.14}>
+              <p className="mt-6 text-base leading-relaxed text-white/85 sm:text-lg">
                 Des parcours structurés, conçus avec des professionnels, pour maîtriser les
-                compétences recherchées en industrie: maintenance, QHSE, production, automatisme et
+                compétences recherchées en industrie : maintenance, QHSE, production, automatisme et
                 plus.
               </p>
             </Reveal>
 
-            <Reveal delay={0.22}>
-              <div className="mt-7">
+            <Reveal delay={0.2}>
+              <div className="mt-8 flex justify-center">
                 <RatingBadge />
               </div>
             </Reveal>
 
-            <Reveal delay={0.28}>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Reveal delay={0.26}>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link href="/login" className="inline-flex">
-                  <Button variant="accent" size="lg" className="px-7">
+                  <Button variant="accent" size="lg" className="px-8">
                     Se connecter <ArrowRight />
                   </Button>
                 </Link>
@@ -271,54 +281,36 @@ export function HomeLanding() {
               </div>
             </Reveal>
 
-            <Reveal delay={0.34}>
-              <div className="mt-8 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+            <Reveal delay={0.32}>
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/80">
                 {[
                   'Accès 30 jours pour terminer votre formation',
                   'Quiz et ressources téléchargeables',
                   'Certificat en fin de parcours',
                   'Support et accompagnement',
                 ].map((t) => (
-                  <div key={t} className="flex items-start gap-2 text-white/85">
-                    <CheckCircle2 className="mt-0.5 size-5 text-facam-yellow" aria-hidden />
-                    <span className="text-sm">{t}</span>
+                  <div key={t} className="flex items-center gap-2">
+                    <CheckCircle2 className="size-5 shrink-0 text-facam-yellow" aria-hidden />
+                    <span>{t}</span>
                   </div>
                 ))}
               </div>
             </Reveal>
-          </div>
 
-          <div className="lg:col-span-5">
-            <Reveal delay={0.12} y={24}>
-              <div className="relative mx-auto max-w-md lg:max-w-none">
-                <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-facam-yellow/30 to-facam-blue-mid/30 blur-2xl" />
-                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-3 shadow-[0_25px_60px_-25px_rgba(0,0,0,0.6)]">
-                  <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-black/30">
-                    <Image
-                      src={HERO_IMAGE}
-                      alt="FACAM ACADEMIA — apprentissage moderne"
-                      fill
-                      className="object-cover"
-                      priority
-                      sizes="(max-width: 1024px) 90vw, 560px"
-                    />
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    {TRUST_CHIPS.map((c) => {
-                      const Icon = c.icon;
-                      return (
-                        <div
-                          key={c.label}
-                          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center"
-                        >
-                          <Icon className="mx-auto size-4 text-facam-yellow" aria-hidden />
-                          <p className="mt-1 text-xs font-semibold text-white/85">{c.label}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            <Reveal delay={0.38}>
+              <div className="mt-12 flex flex-wrap justify-center gap-4">
+                {TRUST_CHIPS.map((c) => {
+                  const Icon = c.icon;
+                  return (
+                    <div
+                      key={c.label}
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center"
+                    >
+                      <Icon className="mx-auto size-5 text-facam-yellow" aria-hidden />
+                      <p className="mt-1.5 text-xs font-semibold text-white/90">{c.label}</p>
+                    </div>
+                  );
+                })}
               </div>
             </Reveal>
           </div>
@@ -589,73 +581,113 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
-      {/* Footer — épuré */}
-      <footer className="bg-facam-dark text-white">
-        <div className="container-custom py-14">
-          <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
-            <div>
-              <p className="font-blacksword text-3xl text-facam-yellow">{APP_NAME}</p>
-              <p className="mt-3 text-sm text-white/70">
-                La plateforme premium de formation industrielle en ligne.
+      {/* Footer — propre, organisé et esthétique */}
+      <footer id="footer" className="relative bg-facam-dark text-white">
+        {/* Séparateur visuel en haut du footer */}
+        <div
+          className="h-px w-full bg-gradient-to-r from-transparent via-facam-yellow/40 to-transparent"
+          aria-hidden
+        />
+        <div className="container-custom py-16">
+          <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
+            {/* Marque et description */}
+            <div className="lg:col-span-5">
+              <p className="font-blacksword text-4xl text-facam-yellow">{APP_NAME}</p>
+              <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">
+                La plateforme premium de formation industrielle en ligne. Formez-vous, validez vos
+                compétences et certifiez-vous.
               </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/login">
+                  <Button variant="accent" size="sm">
+                    Se connecter
+                  </Button>
+                </Link>
+                <Link href="#programmes">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/25 text-white hover:border-white/50"
+                  >
+                    Programmes
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div>
-              <p className="font-bold">Plateforme</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/70">
+            {/* Plateforme */}
+            <div className="lg:col-span-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
+                Plateforme
+              </h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/75">
                 <li>
-                  <Link href="#programmes" className="hover:text-white">
+                  <Link href="#programmes" className="transition-colors hover:text-white">
                     Programmes
                   </Link>
                 </li>
                 <li>
-                  <Link href="/login" className="hover:text-white">
+                  <Link href="/login" className="transition-colors hover:text-white">
                     Connexion
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/#footer" className="transition-colors hover:text-white">
+                    Tarifs & accès
                   </Link>
                 </li>
               </ul>
             </div>
-            <div>
-              <p className="font-bold">Entreprise</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/70">
+            {/* Ressources */}
+            <div className="lg:col-span-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
+                Ressources
+              </h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/75">
                 <li>
-                  <Link href="/#footer" className="hover:text-white">
+                  <Link href="/#footer" className="transition-colors hover:text-white">
                     Former vos équipes
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#footer" className="hover:text-white">
-                    Partenariats
+                  <Link href="/support" className="transition-colors hover:text-white">
+                    Support
                   </Link>
                 </li>
                 <li>
-                  <Link href="/support" className="hover:text-white">
-                    Support
+                  <Link href="/#footer" className="transition-colors hover:text-white">
+                    Partenariats
                   </Link>
                 </li>
               </ul>
             </div>
-            <div>
-              <p className="font-bold">Légal</p>
-              <ul className="mt-4 space-y-2 text-sm text-white/70">
+            {/* Légal */}
+            <div className="lg:col-span-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
+                Légal
+              </h3>
+              <ul className="mt-4 space-y-3 text-sm text-white/75">
                 <li>
-                  <Link href="/#footer" className="hover:text-white">
+                  <Link href="/#footer" className="transition-colors hover:text-white">
                     Confidentialité
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#footer" className="hover:text-white">
-                    Conditions
+                  <Link href="/#footer" className="transition-colors hover:text-white">
+                    Conditions d&apos;utilisation
                   </Link>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 md:flex-row">
+          {/* Barre inférieure */}
+          <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
             <p className="text-sm text-white/60">
-              © {new Date().getFullYear()} FACAM ACADEMIA. Tous droits réservés.
+              © {new Date().getFullYear()} {APP_NAME}. Tous droits réservés.
             </p>
-            <p className="text-sm text-white/60">FR</p>
+            <div className="flex items-center gap-4 text-sm text-white/60">
+              <span className="rounded-full bg-white/10 px-3 py-1">FR</span>
+            </div>
           </div>
         </div>
       </footer>

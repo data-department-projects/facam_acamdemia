@@ -16,15 +16,81 @@ export class ChapitresService {
     userId: string,
     role: string
   ): Promise<{ id: string; title: string; order: number }> {
-    await this.verifierDroitsModule(dto.moduleId, userId, role);
+    let moduleId: string;
+    const courseId = dto.courseId ?? null;
+    if (courseId) {
+      const course = await this.prisma.course.findUnique({
+        where: { id: courseId },
+        include: { module: true },
+      });
+      if (!course) {
+        throw new NotFoundException('Cours introuvable');
+      }
+      moduleId = course.moduleId;
+      await this.verifierDroitsModule(moduleId, userId, role);
+    } else {
+      if (!dto.moduleId) {
+        throw new NotFoundException('moduleId ou courseId requis');
+      }
+      moduleId = dto.moduleId;
+      await this.verifierDroitsModule(moduleId, userId, role);
+    }
+
     const chapitre = await this.prisma.chapter.create({
       data: {
-        moduleId: dto.moduleId,
+        moduleId,
+        courseId,
         title: dto.title,
+        description: dto.description ?? null,
         order: dto.order,
       },
       select: { id: true, title: true, order: true },
     });
+
+    let itemOrder = 1;
+    if (dto.videoUrl) {
+      await this.prisma.chapterItem.create({
+        data: {
+          chapterId: chapitre.id,
+          type: 'video',
+          order: itemOrder++,
+          title: dto.videoTitle?.trim() || dto.title,
+          videoUrl: dto.videoUrl.trim(),
+        },
+      });
+    }
+
+    if (dto.quizQuestions && dto.quizQuestions.length > 0) {
+      const minScore = Math.min(100, Math.max(0, dto.minScoreToPass ?? 70));
+      const quiz = await this.prisma.quiz.create({
+        data: {
+          moduleId,
+          chapterId: chapitre.id,
+          title: `Quiz — ${dto.title}`,
+          isFinal: false,
+          minScoreToPass: minScore,
+        },
+      });
+      await this.prisma.quizQuestion.createMany({
+        data: dto.quizQuestions.map((q, i) => ({
+          quizId: quiz.id,
+          questionText: q.questionText,
+          options: q.options as unknown as object,
+          correctIndex: q.correctIndex,
+          order: i + 1,
+        })),
+      });
+      await this.prisma.chapterItem.create({
+        data: {
+          chapterId: chapitre.id,
+          type: 'quiz',
+          order: itemOrder,
+          title: quiz.title,
+          quizId: quiz.id,
+        },
+      });
+    }
+
     return chapitre;
   }
 
@@ -63,6 +129,28 @@ export class ChapitresService {
     await this.verifierDroitsModule(moduleId, userId, role, lectureSeulement);
     const chapitres = await this.prisma.chapter.findMany({
       where: { moduleId },
+      orderBy: { order: 'asc' },
+      include: {
+        items: { orderBy: { order: 'asc' } },
+        quizzes: true,
+      },
+    });
+    return chapitres;
+  }
+
+  /** Liste les chapitres d’un cours (spec Module → Cours → Chapitres). */
+  async trouverParCourse(courseId: string, userId: string, role: string): Promise<unknown[]> {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: { module: true },
+    });
+    if (!course) {
+      throw new NotFoundException('Cours introuvable');
+    }
+    const lectureSeulement = role === 'student';
+    await this.verifierDroitsModule(course.moduleId, userId, role, lectureSeulement);
+    const chapitres = await this.prisma.chapter.findMany({
+      where: { courseId },
       orderBy: { order: 'asc' },
       include: {
         items: { orderBy: { order: 'asc' } },

@@ -13,14 +13,37 @@ import Image from 'next/image';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { APP_NAME } from '@facam-academia/shared';
-import { MOCK_CATEGORIES, MOCK_MY_LEARNING_COURSES } from '@/data/mock';
+import { api } from '@/lib/api-client';
 
 const LOGO_SRC = '/Facam%20Academia-02-02%202.png';
+
+interface ApiCourse {
+  id: string;
+  title: string;
+  imageUrl?: string;
+  progress?: number;
+}
 
 export function StudentHeader({ user }: { user: { fullName: string; email: string } }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [myLearningOpen, setMyLearningOpen] = useState(false);
+  const [myCourses, setMyCourses] = useState<ApiCourse[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ data: ApiCourse[] }>('/formations?limit=20')
+      .then((res) => {
+        if (!cancelled) setMyCourses(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMyCourses([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fermer le dropdown au clic extérieur
   useEffect(() => {
@@ -100,7 +123,7 @@ export function StudentHeader({ user }: { user: { fullName: string; email: strin
               >
                 <div className="p-4 max-h-[70vh] overflow-y-auto">
                   <div className="space-y-3">
-                    {MOCK_MY_LEARNING_COURSES.map((course) => (
+                    {myCourses.map((course) => (
                       <Link
                         key={course.id}
                         href={`/student/modules/${course.id}`}
@@ -109,7 +132,7 @@ export function StudentHeader({ user }: { user: { fullName: string; email: strin
                       >
                         <div className="relative w-24 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-200">
                           <Image
-                            src={course.imageUrl}
+                            src={course.imageUrl || '/placeholder-course.jpg'}
                             alt=""
                             fill
                             className="object-cover"
@@ -123,7 +146,7 @@ export function StudentHeader({ user }: { user: { fullName: string; email: strin
                           <div className="w-full bg-gray-200 h-1.5 rounded-full mt-2">
                             <div
                               className="bg-facam-blue h-1.5 rounded-full transition-all"
-                              style={{ width: `${course.progress}%` }}
+                              style={{ width: `${course.progress ?? 0}%` }}
                             />
                           </div>
                         </div>
@@ -154,18 +177,21 @@ export function StudentHeader({ user }: { user: { fullName: string; email: strin
           </div>
         </div>
 
-        {/* Sous-barre : Catégories (type Udemy) */}
+        {/* Sous-barre : Liens rapides (données depuis l’API, pas de mock) */}
         <div className="border-t border-gray-100 overflow-x-auto scrollbar-hide">
           <div className="flex items-center gap-1 px-4 md:px-6 py-2 min-w-max">
-            {MOCK_CATEGORIES.map((cat) => (
-              <Link
-                key={cat}
-                href={`/student?cat=${encodeURIComponent(cat)}`}
-                className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-full whitespace-nowrap transition-colors"
-              >
-                {cat}
-              </Link>
-            ))}
+            <Link
+              href="/student/modules"
+              className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-full whitespace-nowrap transition-colors"
+            >
+              Tous les modules
+            </Link>
+            <Link
+              href="/student/my-learning"
+              className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-full whitespace-nowrap transition-colors"
+            >
+              Mon apprentissage
+            </Link>
           </div>
         </div>
       </header>

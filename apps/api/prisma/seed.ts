@@ -1,7 +1,7 @@
 /**
- * Seed Prisma — Crée les données initiales pour FACAM ACADEMIA.
- * Utilisé après la première migration pour avoir un admin et un étudiant de test.
- * Commande : npx prisma db seed
+ * Seed Prisma — Crée uniquement le compte administrateur initial pour FACAM ACADEMIA.
+ * Les comptes responsables et étudiants seront créés depuis l’interface admin.
+ * Commande : npx prisma db seed (depuis apps/api ou racine du monorepo).
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -10,83 +10,35 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
+const ADMIN_EMAIL = 'admin@facam.com';
+const ADMIN_PASSWORD = 'Admin123!'; // Mot de passe de connexion pour l’admin initial
+
 async function main() {
-  const adminEmail = 'admin@facam.com';
-  const adminPassword = 'demo123'; // Même mot de passe que les autres comptes démo
+  // Suppression des comptes démo (étudiant et responsable) pour ne garder que l’admin
+  const demoEmails = ['etudiant@facam.com', 'responsable@facam.com'];
+  for (const email of demoEmails) {
+    const deleted = await prisma.user.deleteMany({ where: { email } });
+    if (deleted.count > 0) {
+      console.log('Compte démo supprimé :', email);
+    }
+  }
 
-  const existingAdmin = await prisma.user.findUnique({
-    where: { email: adminEmail },
+  // Création ou mise à jour du compte administrateur (mot de passe toujours synchronisé avec ADMIN_PASSWORD)
+  const hash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
+  await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    create: {
+      email: ADMIN_EMAIL,
+      passwordHash: hash,
+      fullName: 'Administrateur FACAM',
+      role: 'admin',
+    },
+    update: {
+      passwordHash: hash,
+      fullName: 'Administrateur FACAM',
+    },
   });
-
-  if (existingAdmin) {
-    console.log('Admin déjà présent, skip.');
-  } else {
-    const hash = await bcrypt.hash(adminPassword, SALT_ROUNDS);
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        passwordHash: hash,
-        fullName: 'Administrateur FACAM',
-        role: 'admin',
-      },
-    });
-    console.log('Admin créé :', adminEmail, '(mot de passe : demo123)');
-  }
-
-  const studentEmail = 'etudiant@facam.com';
-  const studentPassword = 'demo123';
-
-  const existingStudent = await prisma.user.findUnique({
-    where: { email: studentEmail },
-  });
-
-  if (existingStudent) {
-    console.log('Étudiant déjà présent, skip.');
-  } else {
-    const hash = await bcrypt.hash(studentPassword, SALT_ROUNDS);
-    await prisma.user.create({
-      data: {
-        email: studentEmail,
-        passwordHash: hash,
-        fullName: 'Étudiant Demo',
-        role: 'student',
-      },
-    });
-    console.log('Étudiant créé :', studentEmail, '(mot de passe : demo123)');
-  }
-
-  // Module de test (pour assigner un responsable)
-  let moduleTest = await prisma.module.findFirst({ where: { title: { contains: 'Test' } } });
-  if (!moduleTest) {
-    moduleTest = await prisma.module.create({
-      data: {
-        title: 'Module de test',
-        description: 'Module créé par le seed pour les tests.',
-        authorName: 'FACAM ACADEMIA',
-      },
-    });
-    console.log('Module de test créé.');
-  }
-
-  // Responsable de module
-  const managerEmail = 'responsable@facam.com';
-  const managerPassword = 'demo123';
-  const existingManager = await prisma.user.findUnique({ where: { email: managerEmail } });
-  if (existingManager) {
-    console.log('Responsable déjà présent, skip.');
-  } else {
-    const hash = await bcrypt.hash(managerPassword, SALT_ROUNDS);
-    await prisma.user.create({
-      data: {
-        email: managerEmail,
-        passwordHash: hash,
-        fullName: 'Responsable Demo',
-        role: 'module_manager',
-        managedModule: { connect: { id: moduleTest.id } },
-      },
-    });
-    console.log('Responsable créé :', managerEmail, '(mot de passe : demo123)');
-  }
+  console.log('Admin prêt :', ADMIN_EMAIL, '| Mot de passe :', ADMIN_PASSWORD);
 
   console.log('Seed terminé.');
 }

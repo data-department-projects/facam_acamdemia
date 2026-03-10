@@ -34,6 +34,13 @@ export class EnrollmentsController {
     return this.enrollmentsService.trouverPourUtilisateur(user.sub, user.role, userId);
   }
 
+  @Get('stats')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER)
+  getStats() {
+    return this.enrollmentsService.compterCompletions();
+  }
+
   @Get('test')
   getTest(): { status: string } {
     return { status: 'enrollments ok' };

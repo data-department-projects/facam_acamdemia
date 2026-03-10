@@ -83,18 +83,26 @@ export class EmailService {
   private readonly logoUrl: string;
 
   constructor() {
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-    this.fromName = process.env.EMAIL_FROM_NAME ?? 'facam_academia';
-    this.fromEmail = user ?? '';
-    this.logoUrl = process.env.APP_LOGO_URL ?? '';
+    // Nettoyage : pas d'espaces ni guillemets (évite l'erreur 535 Gmail)
+    const rawUser = process.env.SMTP_USER ?? '';
+    const rawPass = process.env.SMTP_PASS ?? '';
+    const user = rawUser.trim().replace(/^["']|["']$/g, '');
+    const pass = rawPass
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .replace(/\s/g, '');
+    this.fromName = (process.env.EMAIL_FROM_NAME ?? 'facam_academia').trim();
+    this.fromEmail = user;
+    this.logoUrl = (process.env.APP_LOGO_URL ?? '').trim();
 
     if (user && pass) {
       this.transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
+        host: (process.env.SMTP_HOST ?? 'smtp.gmail.com').trim(),
         port: parseInt(process.env.SMTP_PORT ?? '587', 10),
         secure: process.env.SMTP_SECURE === 'true',
         auth: { user, pass },
+        // Gmail sur 587 utilise STARTTLS (recommandé)
+        tls: { rejectUnauthorized: true },
       });
     }
   }

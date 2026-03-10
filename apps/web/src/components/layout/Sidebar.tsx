@@ -27,13 +27,14 @@ const studentNav = [
 
 const moduleManagerNav = [
   { href: '/module-manager', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/module-manager/modules', label: 'Modules & chapitres', icon: FolderOpen },
+  { href: '/module-manager/modules', label: 'Cours & contenus', icon: FolderOpen },
   { href: '/module-manager/quiz', label: 'Quiz', icon: FileQuestion },
   { href: '/module-manager/stats', label: 'Statistiques', icon: BarChart3 },
 ];
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard global', icon: LayoutDashboard },
+  { href: '/admin/modules', label: 'Gestion des modules', icon: BookOpen },
   { href: '/admin/users', label: 'Gestion utilisateurs', icon: Users },
 ];
 
@@ -83,7 +84,21 @@ export function Sidebar({ role, isOpen = true, onClose, className }: SidebarProp
     >
       <nav className="flex flex-1 flex-col gap-1 p-4">
         {nav.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          // Lien actif = celui qui correspond le mieux au path (évite que Dashboard reste bleu sur toute sous-page)
+          const exactMatch = pathname === item.href;
+          const prefixMatch = item.href !== '/' && pathname.startsWith(item.href + '/');
+          const isActive = exactMatch || prefixMatch;
+          const matchLength = exactMatch ? item.href.length : prefixMatch ? item.href.length : 0;
+          const bestMatch = Math.max(
+            ...nav.map((i) =>
+              pathname === i.href
+                ? i.href.length
+                : pathname.startsWith(i.href + '/')
+                  ? i.href.length
+                  : 0
+            )
+          );
+          const isActiveFinal = isActive && matchLength === bestMatch;
           const Icon = item.icon;
           return (
             <Link
@@ -92,11 +107,11 @@ export function Sidebar({ role, isOpen = true, onClose, className }: SidebarProp
               onClick={onClose}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
-                isActive
+                isActiveFinal
                   ? 'bg-facam-blue text-facam-white'
                   : 'text-facam-blue hover:bg-facam-blue/10'
               )}
-              aria-current={isActive ? 'page' : undefined}
+              aria-current={isActiveFinal ? 'page' : undefined}
             >
               <Icon className="size-5 shrink-0" />
               {item.label}

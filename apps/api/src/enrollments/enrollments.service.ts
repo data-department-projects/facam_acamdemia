@@ -165,6 +165,16 @@ export class EnrollmentsService {
   }
 
   /**
+   * Compte des inscriptions complétées (admin / platform_manager) pour le dashboard.
+   */
+  async compterCompletions(): Promise<{ totalCompletions: number }> {
+    const totalCompletions = await this.prisma.enrollment.count({
+      where: { completedAt: { not: null } },
+    });
+    return { totalCompletions };
+  }
+
+  /**
    * Récupère une inscription par ID.
    */
   async trouverUn(enrollmentId: string, userId: string, role: string): Promise<unknown> {

@@ -1,15 +1,15 @@
 /**
  * Gestion des utilisateurs — Liste des comptes et création (étudiant, responsable de module).
- * L'administrateur peut créer des comptes étudiants et responsables (avec module assigné).
+ * Branché sur l'API : GET /users, POST /users, GET /formations pour les modules.
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { MOCK_USERS, MOCK_MODULES } from '@/data/mock';
+import { api } from '@/lib/api-client';
 
 const ROLE_LABELS: Record<string, string> = {
   student: 'Étudiant',
@@ -21,6 +21,18 @@ const ROLE_LABELS: Record<string, string> = {
 
 type CreateRole = 'student' | 'module_manager';
 
+interface ModuleItem {
+  id: string;
+  title: string;
+}
+
+interface UserItem {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+}
+
 export default function AdminUsersPage() {
   const [showForm, setShowForm] = useState(false);
   const [role, setRole] = useState<CreateRole>('student');
@@ -29,19 +41,77 @@ export default function AdminUsersPage() {
   const [password, setPassword] = useState('');
   const [moduleId, setModuleId] = useState('');
   const [message, setMessage] = useState<'success' | 'error' | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const loadUsers = async () => {
+    try {
+      setLoadError(null);
+      const res = await api.get<{ data: UserItem[] }>('/users?limit=100');
+      setUsers(Array.isArray(res.data) ? res.data : ((res as { data?: UserItem[] }).data ?? []));
+    } catch (e) {
+      setUsers([]);
+      setLoadError(
+        e instanceof Error ? e.message : 'Impossible de charger la liste des utilisateurs.'
+      );
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  const loadModules = async () => {
+    try {
+      const res = await api.get<{ data: ModuleItem[] }>('/formations?limit=100');
+      setModules(
+        Array.isArray(res.data) ? res.data : ((res as { data?: ModuleItem[] }).data ?? [])
+      );
+    } catch (e) {
+      setModules([]);
+      if (showForm)
+        setLoadError(e instanceof Error ? e.message : 'Impossible de charger les modules.');
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  useEffect(() => {
+    if (showForm) loadModules();
+  }, [showForm]);
+
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage(null);
-    // TODO: appeler api.post('/users', { email, fullName, password, role, moduleId: role === 'module_manager' ? moduleId : undefined })
-    // Pour l'instant on simule un succès
-    await new Promise((r) => setTimeout(r, 500));
-    setMessage('success');
-    setFullName('');
-    setEmail('');
-    setPassword('');
-    setModuleId('');
-    setShowForm(false);
+    setLoading(true);
+    try {
+      const payload: Record<string, string> = {
+        email: email.trim().toLowerCase(),
+        fullName: fullName.trim(),
+        password,
+        role,
+      };
+      if (role === 'module_manager' && moduleId) payload.moduleId = moduleId;
+      await api.post('/users', payload);
+      setMessage('success');
+      setMessageText('Compte créé avec succès.');
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      setModuleId('');
+      setShowForm(false);
+      await loadUsers();
+    } catch (err) {
+      setMessage('error');
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du compte.';
+      setMessageText(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,7 +125,17 @@ export default function AdminUsersPage() {
 
       {message === 'success' && (
         <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 text-sm">
-          Compte créé avec succès. (À brancher sur l&apos;API POST /users.)
+          {messageText}
+        </div>
+      )}
+      {message === 'error' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 text-sm">
+          {messageText}
+        </div>
+      )}
+      {loadError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+          {loadError}
         </div>
       )}
 
@@ -70,8 +150,14 @@ export default function AdminUsersPage() {
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                <label
+                  htmlFor="create-role"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Rôle
+                </label>
                 <select
+                  id="create-role"
                   value={role}
                   onChange={(e) => setRole(e.target.value as CreateRole)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -101,30 +187,42 @@ export default function AdminUsersPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                minLength={6}
                 required
               />
               {role === 'module_manager' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="create-module"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Module assigné
                   </label>
                   <select
+                    id="create-module"
                     value={moduleId}
                     onChange={(e) => setModuleId(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    required={role === 'module_manager'}
                   >
                     <option value="">— Sélectionner un module —</option>
-                    {MOCK_MODULES.map((m) => (
+                    {modules.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.title}
                       </option>
                     ))}
                   </select>
+                  {modules.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Aucun module pour l’instant. Créez-en un depuis la section Formations /
+                      Modules.
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">
-                <Button type="submit" variant="accent">
-                  Créer le compte
+                <Button type="submit" variant="accent" disabled={loading}>
+                  {loading ? 'Création...' : 'Créer le compte'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
                   Annuler
@@ -140,39 +238,42 @@ export default function AdminUsersPage() {
           <CardTitle className="text-base">Comptes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="pb-3 font-medium text-gray-700">Nom</th>
-                  <th className="pb-3 font-medium text-gray-700">Email</th>
-                  <th className="pb-3 font-medium text-gray-700">Rôle</th>
-                  <th className="pb-3 font-medium text-gray-700">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_USERS.map((u) => (
-                  <tr key={u.id} className="border-b border-gray-100">
-                    <td className="py-3 font-medium text-facam-dark">{u.fullName}</td>
-                    <td className="py-3 text-gray-600">{u.email}</td>
-                    <td className="py-3">
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-                        {ROLE_LABELS[u.role] ?? u.role}
-                      </span>
-                    </td>
-                    <td className="py-3">
-                      <Button variant="ghost" size="sm">
-                        Modifier
-                      </Button>
-                    </td>
+          {loadingList ? (
+            <p className="text-sm text-gray-500">Chargement...</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="pb-3 font-medium text-gray-700">Nom</th>
+                    <th className="pb-3 font-medium text-gray-700">Email</th>
+                    <th className="pb-3 font-medium text-gray-700">Rôle</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">
-            Création et modification des comptes à connecter à l&apos;API POST /users.
-          </p>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-gray-500">
+                        Aucun utilisateur. Créez un compte avec le bouton « Nouvel utilisateur ».
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((u) => (
+                      <tr key={u.id} className="border-b border-gray-100">
+                        <td className="py-3 font-medium text-facam-dark">{u.fullName}</td>
+                        <td className="py-3 text-gray-600">{u.email}</td>
+                        <td className="py-3">
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
+                            {ROLE_LABELS[u.role] ?? u.role}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

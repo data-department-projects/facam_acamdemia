@@ -13,6 +13,7 @@ import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FormationsModule } from './formations/formations.module';
+import { CoursesModule } from './courses/courses.module';
 import { ChapitresModule } from './chapitres/chapitres.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { QuizModule } from './quiz/quiz.module';
@@ -30,6 +31,7 @@ import { DiscussionsModule } from './discussions/discussions.module';
     AuthModule,
     UsersModule,
     FormationsModule,
+    CoursesModule,
     ChapitresModule,
     EnrollmentsModule,
     QuizModule,

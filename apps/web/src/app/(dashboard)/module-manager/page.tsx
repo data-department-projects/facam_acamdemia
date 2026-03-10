@@ -1,11 +1,11 @@
 /**
- * Dashboard responsable de module — Statistiques utiles : inscrits, taux de complétion,
- * scores moyens aux quiz, quiz final, chapitres abandonnés, progression moyenne.
- * Design : cartes, graphiques Recharts, couleur d'accent jaune pour les indicateurs positifs.
+ * Dashboard responsable de module — Indicateurs chargés depuis l’API (formations).
+ * Données réelles ; stats détaillées (inscrits, complétions par module) à venir côté backend.
  */
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -20,49 +20,103 @@ import {
 import { Users, TrendingUp, Award, Target, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { MOCK_STATS_MODULE_MANAGER } from '@/data/mock';
+import { api } from '@/lib/api-client';
 
-const COMPLETION_BY_MODULE = [
-  { name: 'Maintenance', value: 28, color: '#001b61' },
-  { name: 'Production', value: 15, color: '#002a6e' },
-  { name: 'QHSE', value: 32, color: '#ffae03' },
-];
+interface FormationItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  chaptersCount?: number;
+}
 
-const SCORES_EVOLUTION = [
-  { name: 'Semaine 1', score: 72 },
-  { name: 'Semaine 2', score: 78 },
-  { name: 'Semaine 3', score: 75 },
-  { name: 'Semaine 4', score: 82 },
-];
-
-const ABANDON_CHAPTERS = [
-  { name: 'Ch. 3', abandon: 12 },
-  { name: 'Ch. 5', abandon: 8 },
-  { name: 'Ch. 7', abandon: 15 },
-  { name: 'Ch. 9', abandon: 6 },
-];
+interface Paginated<T> {
+  data: T[];
+  total: number;
+}
 
 export default function ModuleManagerDashboardPage() {
-  const totalStudents = MOCK_STATS_MODULE_MANAGER.totalStudents ?? 0;
-  const totalCompletions = MOCK_STATS_MODULE_MANAGER.totalCompletions ?? 0;
-  const completionRate =
-    totalStudents > 0 ? Math.round((totalCompletions / totalStudents) * 100) : 0;
-  const avgProgress = 64; // mock
+  const [modules, setModules] = useState<FormationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+    api
+      .get<Paginated<FormationItem>>('/formations?limit=50')
+      .then((res) => {
+        if (!cancelled) setModules(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setModules([]);
+          setError(e instanceof Error ? e.message : 'Impossible de charger les modules.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalModules = modules.length;
+  // Ces indicateurs nécessiteraient un endpoint dédié (ex. GET /stats/module-manager)
+  const totalStudents = 0;
+  const totalCompletions = 0;
+  const completionRate = 0;
+  const avgProgress = 0;
+
+  const completionByModule =
+    totalModules > 0
+      ? modules.slice(0, 5).map((m, i) => ({
+          name: m.title,
+          value: 0,
+          color: ['#001b61', '#002a6e', '#ffae03', '#003380', '#004499'][i] ?? '#001b61',
+        }))
+      : [];
+
+  const scoresEvolution: { name: string; score: number }[] = [];
+  const abandonChapters: { name: string; abandon: number }[] = [];
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-facam-dark">Dashboard responsable de module</h1>
+        <p className="text-gray-500">Chargement…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-facam-dark">Dashboard responsable de module</h1>
+      {error && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+          {error}
+        </div>
+      )}
 
-      {/* Cartes KPIs */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-gray-200 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Modules</CardTitle>
+            <Activity className="size-5 text-facam-blue" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-facam-dark">{totalModules}</p>
+            <p className="text-xs text-gray-500">Formations visibles</p>
+          </CardContent>
+        </Card>
         <Card className="border-gray-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Étudiants inscrits</CardTitle>
             <Users className="size-5 text-facam-blue" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-facam-dark">{totalStudents}</p>
-            <p className="text-xs text-gray-500">Sur vos modules</p>
+            <p className="text-2xl font-bold text-facam-dark">{totalStudents || '—'}</p>
+            <p className="text-xs text-gray-500">Sur vos modules (API à brancher)</p>
           </CardContent>
         </Card>
         <Card className="border-gray-200 shadow-sm">
@@ -81,23 +135,12 @@ export default function ModuleManagerDashboardPage() {
             <TrendingUp className="size-5 text-facam-blue" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-facam-dark">76 %</p>
-            <p className="text-xs text-gray-500">Quiz chapitres</p>
-          </CardContent>
-        </Card>
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Quiz final (moy.)</CardTitle>
-            <Award className="size-5 text-facam-yellow" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-facam-dark">14,2 / 20</p>
-            <p className="text-xs text-gray-500">Note moyenne</p>
+            <p className="text-2xl font-bold text-facam-dark">—</p>
+            <p className="text-xs text-gray-500">Quiz (API à brancher)</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Progression moyenne */}
       <Card className="border-gray-200 shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Progression moyenne des étudiants</CardTitle>
@@ -111,29 +154,33 @@ export default function ModuleManagerDashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Complétions par module</CardTitle>
+            <CardTitle className="text-base">Modules</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={COMPLETION_BY_MODULE}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label
-                  >
-                    {COMPLETION_BY_MODULE.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {completionByModule.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={completionByModule}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label
+                    >
+                      {completionByModule.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Aucun module. Les données viennent de l’API.</p>
+            )}
           </CardContent>
         </Card>
         <Card className="border-gray-200 shadow-sm">
@@ -141,16 +188,20 @@ export default function ModuleManagerDashboardPage() {
             <CardTitle className="text-base">Évolution des scores moyens</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={SCORES_EVOLUTION}>
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="score" fill="#ffae03" radius={[4, 4, 0, 0]} name="Score %" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {scoresEvolution.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={scoresEvolution}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="score" fill="#ffae03" radius={[4, 4, 0, 0]} name="Score %" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Données à connecter (endpoint stats).</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -158,21 +209,25 @@ export default function ModuleManagerDashboardPage() {
       <Card className="border-gray-200 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Chapitres les plus abandonnés</CardTitle>
-          <p className="text-sm text-gray-500 font-normal">
+          <p className="text-sm font-normal text-gray-500">
             Où les étudiants s&apos;arrêtent le plus
           </p>
         </CardHeader>
         <CardContent>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={ABANDON_CHAPTERS} layout="vertical" margin={{ left: 40 }}>
-                <XAxis type="number" />
-                <YAxis type="category" dataKey="name" width={50} />
-                <Tooltip />
-                <Bar dataKey="abandon" fill="#001b61" radius={[0, 4, 4, 0]} name="Abandons" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {abandonChapters.length > 0 ? (
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={abandonChapters} layout="vertical" margin={{ left: 40 }}>
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="name" width={50} />
+                  <Tooltip />
+                  <Bar dataKey="abandon" fill="#001b61" radius={[0, 4, 4, 0]} name="Abandons" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Données à connecter (endpoint stats).</p>
+          )}
         </CardContent>
       </Card>
     </div>

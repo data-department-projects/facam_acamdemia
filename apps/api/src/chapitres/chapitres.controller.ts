@@ -39,6 +39,13 @@ export class ChapitresController {
     return this.chapitresService.trouverParModule(moduleId, user.sub, user.role);
   }
 
+  @Get('course/:courseId')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER, ROLES.MODULE_MANAGER, ROLES.STUDENT)
+  trouverParCourse(@Param('courseId') courseId: string, @CurrentUser() user: UtilisateurPayload) {
+    return this.chapitresService.trouverParCourse(courseId, user.sub, user.role);
+  }
+
   @Get('test')
   getTest(): { status: string } {
     return { status: 'chapitres ok' };

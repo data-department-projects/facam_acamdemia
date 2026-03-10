@@ -77,7 +77,7 @@ export function ChapterVideoAndQuiz({
               <CheckCircle className="size-4 text-facam-yellow" />
               Quiz débloqué
             </span>
-            <Link href={`/student/modules/${moduleId}/quiz?chapter=${chapterId}`}>
+            <Link href={`/student/modules/${moduleId}/quiz?quizId=${quizId}`}>
               <Button variant="accent" size="md">
                 <FileQuestion className="mr-2 size-4" />
                 Passer le quiz du chapitre

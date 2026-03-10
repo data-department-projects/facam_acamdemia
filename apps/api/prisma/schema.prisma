@@ -71,6 +71,7 @@ model Module {
   updatedAt          DateTime  @updatedAt
 
   manager            User?     @relation("ModuleManager", fields: [managerId], references: [id], onDelete: SetNull)
+  courses            Course[]
   chapters           Chapter[]
   enrollments        Enrollment[]
   reviews            Review[]
@@ -79,17 +80,34 @@ model Module {
   certificates       Certificate[]
 }
 
-model Chapter {
-  id        String   @id @default(cuid())
-  moduleId  String
-  title     String
-  order     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Cours : niveau intermédiaire Module → Cours → Chapitres (spec pédagogique)
+model Course {
+  id          String    @id @default(cuid())
+  moduleId    String
+  title       String
+  description String?   @db.Text
+  order       Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  module Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  items  ChapterItem[]
-  quizzes Quiz[]       // Quiz par chapitre (QCM)
+  module   Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  chapters Chapter[]
+}
+
+model Chapter {
+  id          String   @id @default(cuid())
+  moduleId    String   // conservé pour rétrocompatibilité (dérivable via course.moduleId si courseId présent)
+  courseId    String?  // si présent, le chapitre appartient à ce cours
+  title       String
+  description String?  @db.Text
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module   Module        @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  course   Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  items    ChapterItem[]
+  quizzes  Quiz[]        // Quiz par chapitre (QCM)
 }
 
 // Élément d'un chapitre : vidéo, document ou quiz

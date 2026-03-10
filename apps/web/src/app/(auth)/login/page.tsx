@@ -14,15 +14,9 @@ import { setAuthSession, ROLE_HOME } from '@/lib/auth';
 import { api, setAccessToken } from '@/lib/api-client';
 import type { UserRole } from '@/types';
 
+// Fallback local si API indisponible — admin aligné sur le seed (Admin123!)
 const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole; fullName: string }> = {
-  'etudiant@facam.com': { password: 'demo123', role: 'student', fullName: 'Étudiant Demo' },
-  'responsable@facam.com': {
-    password: 'demo123',
-    role: 'module_manager',
-    fullName: 'Responsable Demo',
-  },
-  'admin@facam.com': { password: 'demo123', role: 'admin', fullName: 'Admin Demo' },
-  'support@facam.com': { password: 'demo123', role: 'support', fullName: 'Support Demo' },
+  'admin@facam.com': { password: 'Admin123!', role: 'admin', fullName: 'Administrateur FACAM' },
 };
 
 interface LoginResponse {
@@ -80,7 +74,7 @@ export default function LoginPage() {
     // Fallback : comptes démo (si API indisponible ou identifiants non reconnus)
     const account = DEMO_ACCOUNTS[emailTrimmed];
     if (!account || account.password !== password) {
-      setError('Identifiants incorrects. Essayez un compte démo.');
+      setError('Identifiants incorrects.');
       setLoading(false);
       return;
     }
@@ -161,10 +155,8 @@ export default function LoginPage() {
       </form>
 
       <div className="mt-6 p-4 bg-facam-blue-tint/50 rounded-lg text-xs text-gray-500 text-center border border-facam-blue/10">
-        <p className="font-semibold mb-1">Comptes Démo (si API indisponible) :</p>
-        etudiant@facam.com / responsable@facam.com / admin@facam.com
-        <br />
-        Mot de passe : demo123
+        <p className="font-semibold mb-1">Compte admin (créé par le seed) :</p>
+        admin@facam.com — Mot de passe : Admin123!
       </div>
     </div>
   );
