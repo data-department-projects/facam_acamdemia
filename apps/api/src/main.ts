@@ -26,8 +26,9 @@ async function bootstrap() {
     credentials: true,
   });
   const port = process.env.PORT ?? 3001;
-  await app.listen(port);
-  console.log(`API FACAM ACADEMIA listening on http://localhost:${port}`);
+  const host = process.env.HOST ?? '0.0.0.0';
+  await app.listen(port, host);
+  console.log(`API FACAM ACADEMIA listening on http://${host}:${port}`);
 }
 
 void bootstrap();
