@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx turbo run dev",
     "build": "npx turbo run build",
+    "vercel-build": "turbo run build --filter=web",
     "lint": "npx turbo run lint",
     "lint:fix": "npx turbo run lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
