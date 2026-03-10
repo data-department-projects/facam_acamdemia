@@ -31,4 +31,7 @@ async function bootstrap() {
   console.log(`API FACAM ACADEMIA listening on http://${host}:${port}`);
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  console.error('Bootstrap failed:', err);
+  process.exit(1);
+});
