@@ -4,8 +4,8 @@
 
 [build]
 builder = "nixpacks"
-# Install + build à la racine du repo pour que Turbo et les workspaces fonctionnent.
-buildCommand = "npm ci && npx turbo run build --filter=api"
+# Nixpacks exécute déjà "npm ci" en phase install ; ne pas le répéter ici (sinon EBUSY sur node_modules/.cache).
+buildCommand = "npx turbo run build --filter=api"
 # Ne redéployer que si l'API ou le package shared changent.
 watchPatterns = ["apps/api/**", "packages/shared/**"]
 

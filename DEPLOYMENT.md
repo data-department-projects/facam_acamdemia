@@ -50,18 +50,19 @@ Si Railway ne propose pas “Root Directory” et exécute tout depuis la racine
 
 Dans le même service : **Variables** (ou **Environment**) et ajoute :
 
-| Variable          | Description                                                                          | Exemple                                              |
-| ----------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `DATABASE_URL`    | URL PostgreSQL (Supabase, pooler si besoin)                                          | `postgresql://user:pass@host:6543/db?pgbouncer=true` |
-| `DIRECT_URL`      | URL directe (migrations)                                                             | `postgresql://user:pass@host:5432/db`                |
-| `PORT`            | Port (Railway l’injecte souvent ; tu peux ne pas le mettre)                          | `3001` ou laisser Railway                            |
-| `JWT_SECRET`      | Secret pour les JWT                                                                  | Une longue chaîne aléatoire                          |
-| `CORS_ORIGIN`     | Origine(s) autorisée(s) — ton frontend Vercel (plusieurs : séparer par des virgules) | `https://ton-app.vercel.app`                         |
-| `SMTP_HOST`       | Serveur SMTP                                                                         | `smtp.gmail.com`                                     |
-| `SMTP_PORT`       | Port SMTP                                                                            | `587`                                                |
-| `SMTP_USER`       | Email Gmail                                                                          | ton-email@gmail.com                                  |
-| `SMTP_PASS`       | Mot de passe d’application Gmail                                                     | xxx xxx xxx xxx                                      |
-| `EMAIL_FROM_NAME` | Nom expéditeur                                                                       | `facam_academia`                                     |
+| Variable                | Description                                                                          | Exemple                                              |
+| ----------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `NIXPACKS_NODE_VERSION` | Version Node pour le build (évite EBADENGINE avec Node 22.x)                         | `20`                                                 |
+| `DATABASE_URL`          | URL PostgreSQL (Supabase, pooler si besoin)                                          | `postgresql://user:pass@host:6543/db?pgbouncer=true` |
+| `DIRECT_URL`            | URL directe (migrations)                                                             | `postgresql://user:pass@host:5432/db`                |
+| `PORT`                  | Port (Railway l’injecte souvent ; tu peux ne pas le mettre)                          | `3001` ou laisser Railway                            |
+| `JWT_SECRET`            | Secret pour les JWT                                                                  | Une longue chaîne aléatoire                          |
+| `CORS_ORIGIN`           | Origine(s) autorisée(s) — ton frontend Vercel (plusieurs : séparer par des virgules) | `https://ton-app.vercel.app`                         |
+| `SMTP_HOST`             | Serveur SMTP                                                                         | `smtp.gmail.com`                                     |
+| `SMTP_PORT`             | Port SMTP                                                                            | `587`                                                |
+| `SMTP_USER`             | Email Gmail                                                                          | ton-email@gmail.com                                  |
+| `SMTP_PASS`             | Mot de passe d’application Gmail                                                     | xxx xxx xxx xxx                                      |
+| `EMAIL_FROM_NAME`       | Nom expéditeur                                                                       | `facam_academia`                                     |
 
 - Tu ne connais pas encore l’URL du frontend : mets `CORS_ORIGIN` après avoir déployé sur Vercel (étape 2), ou mets `*` temporairement (moins sécurisé).
 - Après le premier déploiement, lance les migrations depuis ta machine (voir 1.5) ou via une commande Railway si tu la configures.
@@ -147,6 +148,8 @@ Redéploie le service API si besoin. Désormais le navigateur autorise les appel
 - **CORS / requêtes bloquées** : vérifier que `CORS_ORIGIN` sur Railway correspond exactement à l’URL du frontend (protocole + domaine, sans slash final).
 - **404 sur l’API** : vérifier que `NEXT_PUBLIC_API_URL` n’a pas de slash final et que les routes backend sont bien exposées (ex. `/auth/login`, etc.).
 - **Build Railway échoué** : vérifier que **Build Command** et **Start Command** sont bien ceux de l’étape 1.2 et que les variables (notamment `DATABASE_URL`) sont définies.
+- **`EBUSY: resource busy or locked, rmdir '.../node_modules/.cache'`** : Nixpacks exécute déjà `npm ci` en phase install ; le `buildCommand` ne doit **pas** contenir un second `npm ci`. Dans `railway.toml` le build doit être uniquement `npx turbo run build --filter=api`. C’est corrigé dans le repo.
+- **`EBADENGINE` (Node / npm)** : si le build utilise une version Node non supportée par certaines dépendances, ajoute dans les variables Railway **`NIXPACKS_NODE_VERSION`** = **`20`** pour forcer Node 20 LTS.
 - **Build Vercel échoué** : vérifier que **Root Directory** = `apps/web` et **Install Command** = `cd ../.. && npm ci`.
 
 ---
