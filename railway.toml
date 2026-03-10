@@ -1,11 +1,19 @@
-# Configuration Railway pour le backend (NestJS) en monorepo.
-# Le service doit pointer sur ce repo et utiliser ces commandes si pas définies dans le dashboard.
+# Configuration Railway — Backend API (NestJS) — Monorepo FACAM ACADEMIA
+# IMPORTANT : dans le dashboard Railway, laisser "Root Directory" VIDE (racine du repo).
+# Sinon le build ne trouve pas Turbo et le dossier dist/ n'est pas au bon endroit.
 
 [build]
 builder = "nixpacks"
-buildCommand = "npx turbo run build --filter=api"
+# Install + build à la racine du repo pour que Turbo et les workspaces fonctionnent.
+buildCommand = "npm ci && npx turbo run build --filter=api"
+# Ne redéployer que si l'API ou le package shared changent.
+watchPatterns = ["apps/api/**", "packages/shared/**"]
 
 [deploy]
-startCommand = "cd apps/api && npm run start:prod"
+# Exécuté depuis la racine du repo : on entre dans apps/api puis on lance le serveur.
+startCommand = "cd apps/api && node dist/main.js"
+# Health check : l'API expose GET /health (voir app.controller.ts).
+healthcheckPath = "/health"
+healthcheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10

@@ -7,7 +7,7 @@ name: CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   # Vercel déploie automatiquement via GitHub App ; ce job valide que le build passe.
