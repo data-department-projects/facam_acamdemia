@@ -17,7 +17,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { Users, TrendingUp, Award, Target, Activity } from 'lucide-react';
+import { Users, TrendingUp, Target, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { api } from '@/lib/api-client';

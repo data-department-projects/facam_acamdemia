@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -63,7 +63,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const loadModules = async () => {
+  const loadModules = useCallback(async () => {
     try {
       const res = await api.get<{ data: ModuleItem[] }>('/formations?limit=100');
       setModules(
@@ -74,7 +74,7 @@ export default function AdminUsersPage() {
       if (showForm)
         setLoadError(e instanceof Error ? e.message : 'Impossible de charger les modules.');
     }
-  };
+  }, [showForm]);
 
   useEffect(() => {
     loadUsers();
@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (showForm) loadModules();
-  }, [showForm]);
+  }, [showForm, loadModules]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -25,7 +25,7 @@ export function ChapterVideoAndQuiz({
   chapterTitle,
   description,
   moduleId,
-  chapterId,
+  chapterId: _chapterId,
   quizId,
 }: ChapterVideoAndQuizProps) {
   const [videoMarkedComplete, setVideoMarkedComplete] = useState(false);
