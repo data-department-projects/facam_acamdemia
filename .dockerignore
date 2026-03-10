@@ -1,0 +1,27 @@
+# Contexte Docker (Railway) : exclure fichiers inutiles au build.
+# Garde tout le code source (monorepo) pour npm ci + turbo build --filter=api.
+
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+.git
+*.log
+.env
+.env.*
+!.env.example
+coverage
+**/coverage
+.turbo
+.cache
+.DS_Store
+*.tsbuildinfo
+.husky
+.vscode
+.cursor
+**/*.spec.ts
+**/*.test.ts
+**/*.spec.tsx
+**/*.test.tsx
