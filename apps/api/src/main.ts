@@ -15,8 +15,14 @@ async function bootstrap() {
       transform: true,
     })
   );
+  const corsOrigin = process.env.CORS_ORIGIN;
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? true,
+    origin: corsOrigin
+      ? corsOrigin
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
+      : true,
     credentials: true,
   });
   const port = process.env.PORT ?? 3001;

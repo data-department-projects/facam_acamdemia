@@ -23,6 +23,6 @@
       "@nestjs/passport/*": ["../../node_modules/@nestjs/passport/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma/**/*"],
   "exclude": ["node_modules", "dist"]
 }

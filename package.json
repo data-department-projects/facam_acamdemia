@@ -14,7 +14,7 @@
     "test:unit": "npx turbo run test:unit",
     "test:e2e": "npx turbo run test:e2e",
     "clean": "npx turbo run clean --force",
-    "prepare": "husky"
+    "prepare": "node -e \"if (process.env.HUSKY === '0' || process.env.CI === '1' || process.env.VERCEL === '1') process.exit(0); require('child_process').execSync('npx husky', { stdio: 'inherit' })\""
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -43,6 +43,6 @@
   ],
   "packageManager": "npm@10.9.0",
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   }
 }

@@ -7,7 +7,6 @@ import { Users, BookOpen, Award, Activity, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { ProgressBar } from '@/components/ui/ProgressBar';
 import { MOCK_USERS, MOCK_MODULES } from '@/data/mock';
 
 /** Données mock pour l'activité récente */

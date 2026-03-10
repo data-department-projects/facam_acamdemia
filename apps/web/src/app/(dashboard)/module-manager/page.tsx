@@ -17,7 +17,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { Users, BookOpen, TrendingUp, Award, Target, Activity } from 'lucide-react';
+import { Users, TrendingUp, Award, Target, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { MOCK_STATS_MODULE_MANAGER } from '@/data/mock';
@@ -45,7 +45,6 @@ const ABANDON_CHAPTERS = [
 export default function ModuleManagerDashboardPage() {
   const totalStudents = MOCK_STATS_MODULE_MANAGER.totalStudents ?? 0;
   const totalCompletions = MOCK_STATS_MODULE_MANAGER.totalCompletions ?? 0;
-  const totalModules = MOCK_STATS_MODULE_MANAGER.totalModules ?? 0;
   const completionRate =
     totalStudents > 0 ? Math.round((totalCompletions / totalStudents) * 100) : 0;
   const avgProgress = 64; // mock

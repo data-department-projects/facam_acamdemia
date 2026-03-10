@@ -1,0 +1,11 @@
+# Configuration Railway pour le backend (NestJS) en monorepo.
+# Le service doit pointer sur ce repo et utiliser ces commandes si pas définies dans le dashboard.
+
+[build]
+builder = "nixpacks"
+buildCommand = "npx turbo run build --filter=api"
+
+[deploy]
+startCommand = "cd apps/api && npm run start:prod"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

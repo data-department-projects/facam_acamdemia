@@ -71,7 +71,7 @@ export function ChapterVideoAndQuiz({
           >
             J&apos;ai terminé la vidéo — débloquer le quiz
           </Button>
-        ) : quizId ? (
+        ) : quizUnlocked ? (
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 text-sm font-medium text-green-700">
               <CheckCircle className="size-4 text-facam-yellow" />
