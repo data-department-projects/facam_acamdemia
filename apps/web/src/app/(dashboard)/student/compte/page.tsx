@@ -11,8 +11,7 @@ import Link from 'next/link';
 import { User, Mail, Shield, Calendar, ArrowLeft, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { API_BASE } from '@/lib/api-client';
 
 interface StoredUser {
   email: string;

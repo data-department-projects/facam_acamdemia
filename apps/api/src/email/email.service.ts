@@ -101,8 +101,10 @@ export class EmailService {
         port: parseInt(process.env.SMTP_PORT ?? '587', 10),
         secure: process.env.SMTP_SECURE === 'true',
         auth: { user, pass },
-        // Gmail sur 587 utilise STARTTLS (recommandé)
         tls: { rejectUnauthorized: true },
+        // Évite de bloquer 2 min si le serveur SMTP ne répond pas (Railway, firewall, etc.)
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
       });
     }
   }
@@ -129,6 +131,8 @@ export class EmailService {
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur envoi email';
+      // Log pour diagnostic (Railway logs) sans exposer les détails au client
+      console.error('[EmailService] Envoi OTP échoué:', message);
       return { success: false, error: message };
     }
   }

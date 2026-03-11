@@ -4,7 +4,7 @@
  * Rôle : un seul point d'entrée pour toutes les requêtes API (maintenabilité).
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export interface ApiError {
   statusCode: number;

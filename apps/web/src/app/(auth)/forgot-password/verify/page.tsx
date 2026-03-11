@@ -10,8 +10,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ArrowLeft } from 'lucide-react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import { API_BASE } from '@/lib/api-client';
 
 function VerifyOtpContent() {
   const searchParams = useSearchParams();
@@ -28,7 +27,7 @@ function VerifyOtpContent() {
     setValid(null);
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/verify-otp`, {
+      const res = await fetch(`${API_BASE}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), code: code.trim() }),

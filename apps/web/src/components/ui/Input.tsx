@@ -2,7 +2,7 @@
  * Composant Input accessible — focus bleu charte FACAM, états erreur.
  */
 
-import { forwardRef } from 'react';
+import { forwardRef, useId } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -12,7 +12,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, type = 'text', label, error, id: idProp, ...props }, ref) => {
-    const id = idProp ?? `input-${Math.random().toString(36).slice(2, 9)}`;
+    const reactId = useId();
+    const id = idProp ?? `input-${reactId.replace(/:/g, '')}`;
     return (
       <div className="w-full">
         {label && (
