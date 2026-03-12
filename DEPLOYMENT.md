@@ -56,7 +56,7 @@ Dans le service API → **Variables** → ajouter :
 | `SMTP_USER`    | Si emails   | Adresse email (Gmail : utiliser un mot de passe d’application)                             |
 | `SMTP_PASS`    | Si emails   | Mot de passe SMTP                                                                          |
 
-Référence complète : `apps/api/.env.example`.
+Référence complète : `.env.example` à la racine et `docs/ENV.md`.
 
 ### 2.4 Health check
 
@@ -130,14 +130,15 @@ Pour insérer des données initiales (ex. admin) :
 
 ## 5. Récapitulatif des fichiers de déploiement
 
-| Fichier / Dossier                      | Rôle                                                 |
-| -------------------------------------- | ---------------------------------------------------- |
-| `Dockerfile`                           | Build et image Docker de l’API pour Railway          |
-| `.dockerignore`                        | Réduit le contexte Docker et évite d’écraser `dist`  |
-| `apps/api/scripts/start-production.sh` | Migrations Prisma + démarrage de l’API en production |
-| `apps/api/.env.example`                | Liste des variables d’environnement API              |
-| `apps/web/.env.example`                | Variable(s) d’environnement frontend                 |
-| `vercel.json` (racine)                 | Config build Vercel pour le monorepo (app `web`)     |
+| Fichier / Dossier                      | Rôle                                                    |
+| -------------------------------------- | ------------------------------------------------------- |
+| `Dockerfile`                           | Build et image Docker de l’API pour Railway             |
+| `.dockerignore`                        | Réduit le contexte Docker et évite d’écraser `dist`     |
+| `apps/api/scripts/start-production.sh` | Migrations Prisma + démarrage de l’API en production    |
+| `apps/api/.env.example`                | Liste des variables d’environnement API                 |
+| `apps/web/.env.example`                | Variable(s) d’environnement frontend                    |
+| `vercel.json` (racine)                 | Config build Vercel pour le monorepo (app `web`)        |
+| `docs/ENV.md`                          | Variables d’environnement par environnement et sécurité |
 
 ---
 
@@ -160,3 +161,42 @@ Pour insérer des données initiales (ex. admin) :
 - **Erreurs Prisma en prod** : vérifier `DATABASE_URL` (pooler) et `DIRECT_URL` (connexion directe pour les migrations).
 
 Pour la config locale et les mails, voir aussi `CONFIGURATION.md`.
+
+---
+
+## 8. Rollback (retour en arrière)
+
+En cas de problème après un déploiement, voici comment revenir à un état stable.
+
+### 8.1 Rollback du code (Git)
+
+Pour remettre la branche `production` à un commit ou un tag connu (ex. le tag créé avant la migration DevOps) :
+
+```bash
+# En local, sur la branche production
+git fetch origin
+git checkout production
+git reset --hard <commit-hash>   # ou : git reset --hard pre-devops-migration
+git push origin production --force
+```
+
+**Attention** : `--force` réécrit l’historique distant. À utiliser seulement après accord (ex. équipe / mainteneur). Après le push, Vercel et Railway déclencheront un nouveau déploiement à partir de ce commit.
+
+### 8.2 Rollback du frontend (Vercel)
+
+1. Vercel → projet → onglet **Deployments**.
+2. Trouver un déploiement **réussi** antérieur (état vert).
+3. Cliquer sur les **trois points (⋯)** de ce déploiement → **Promote to Production** (ou équivalent).
+4. Ce déploiement devient la version servie en production, sans changer la branche Git.
+
+### 8.3 Rollback de l’API (Railway)
+
+1. Railway → projet → service API → onglet **Deployments** (ou **History**).
+2. Choisir un **déploiement antérieur** qui fonctionnait.
+3. Utiliser l’option **Redeploy** ou **Rollback** pour redéployer cette version (selon l’interface Railway).
+
+### 8.4 Ordre recommandé en cas d’incident
+
+1. Si seul le frontend pose problème : rollback Vercel (§ 8.2).
+2. Si seule l’API pose problème : rollback Railway (§ 8.3).
+3. Si le problème vient du code (bug, mauvaise release) : corriger sur `dev` → PR vers `main` → PR vers `production`, ou en urgence utiliser le rollback Git (§ 8.1) puis corriger proprement via une nouvelle PR.
