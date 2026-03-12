@@ -16,11 +16,11 @@ Document de **planification stricte** : chaque étape doit être **validée** av
 
 ## Rôles des 3 branches
 
-| Branche          | Rôle                                                                                                                                       | Qui pousse / merge                                   | Déploiement                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| **`dev`**        | Développement au quotidien. Toutes les features et correctifs arrivent ici (directement ou via PR depuis des branches type `feature/xxx`). | Équipe dev                                           | Aucun (ou preview Vercel optionnel)                                         |
-| **`main`**       | Intégration / staging. Code prêt à être livré, testé avant mise en production.                                                             | Merge depuis `dev` après revue (PR) + CI verte       | Staging (si tu configures un env staging plus tard) ou aucun au début       |
-| **`production`** | Production. Code livré aux utilisateurs.                                                                                                   | Merge depuis `main` après validation (PR) + CI verte | **Vercel + Railway** (déploiement automatique uniquement sur cette branche) |
+| Branche          | Rôle                                                                                                                                      | Qui pousse / merge                                   | Déploiement                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| **`dev`**        | Développement au quotidien Toutes les features et correctifs arrivent ici (directement ou via PR depuis des branches type `feature/xxx`). | Équipe dev                                           | Aucun (ou preview Vercel optionnel)                                         |
+| **`main`**       | Intégration / staging. Code prêt à être livré, testé avant mise en production.                                                            | Merge depuis `dev` après revue (PR) + CI verte       | Staging (si tu configures un env staging plus tard) ou aucun au début       |
+| **`production`** | Production. Code livré aux utilisateurs.                                                                                                  | Merge depuis `main` après validation (PR) + CI verte | **Vercel + Railway** (déploiement automatique uniquement sur cette branche) |
 
 Au démarrage, ton code actuel (sur `master`) = ce qui tourne en prod. Donc après migration :
 
