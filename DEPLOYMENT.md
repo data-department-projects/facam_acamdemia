@@ -4,6 +4,16 @@ Ce document décrit la mise en production complète : API sur Railway, frontend 
 
 ---
 
+## 0. Branche de déploiement (DevOps)
+
+Le déploiement automatique se fait **uniquement** depuis la branche **`production`** :
+
+- **Vercel** (frontend) et **Railway** (API) doivent être configurés pour déployer sur chaque push vers **`production`**.
+- Ne pas déployer depuis `main` ni `dev` pour la production.
+- Workflow GitHub Actions : `.github/workflows/deploy.yml` (vérification du build sur chaque push vers `production`).
+
+---
+
 ## 1. Prérequis
 
 - Compte [Railway](https://railway.app) et [Vercel](https://vercel.com)
@@ -18,7 +28,8 @@ Ce document décrit la mise en production complète : API sur Railway, frontend 
 
 1. Nouveau projet → **Deploy from GitHub repo** → sélectionner le dépôt.
 2. **Root Directory** : laisser **vide** (racine du monorepo, où se trouve le `Dockerfile`).
-3. Railway détecte le **Dockerfile** et l’utilise pour le build (plus de Nixpacks).
+3. **Branche à déployer** : configurer sur **`production`** (Settings du service → Branch = `production`).
+4. Railway détecte le **Dockerfile** et l’utilise pour le build (plus de Nixpacks).
 
 ### 2.2 Build et démarrage (Dockerfile)
 
@@ -85,9 +96,10 @@ Dans le projet → **Settings** → **Environment Variables** :
 
 Référence : `apps/web/.env.example`.
 
-### 3.3 Redéploiement
+### 3.3 Branche de production et redéploiement
 
-À chaque push sur la branche connectée, Vercel rebuild et redéploie le frontend.
+- Dans **Settings** → **Git** : définir **Production Branch** sur **`production`**.
+- À chaque push (ou merge) sur **`production`**, Vercel rebuild et redéploie le frontend en production.
 
 ---
 
