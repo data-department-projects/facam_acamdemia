@@ -17,6 +17,8 @@ export interface HeaderProps {
   onMenuClick?: () => void;
   showSidebarToggle?: boolean;
   user?: { fullName: string; email: string; role: string } | null;
+  /** Lien vers la page profil/compte (ex: /admin/compte, /module-manager/compte) */
+  compteHref?: string;
   className?: string;
 }
 
@@ -24,6 +26,7 @@ export function Header({
   onMenuClick,
   showSidebarToggle = false,
   user = null,
+  compteHref,
   className,
 }: HeaderProps) {
   const handleMenuClick = () => {
@@ -69,9 +72,19 @@ export function Header({
             <span className="hidden text-sm font-medium text-facam-blue sm:inline-block">
               {user.fullName}
             </span>
-            <span className="rounded-full bg-facam-blue-tint p-2 text-facam-blue" aria-hidden>
-              <User className="size-4" />
-            </span>
+            {compteHref ? (
+              <Link
+                href={compteHref}
+                className="rounded-full bg-facam-blue-tint p-2 text-facam-blue hover:bg-facam-blue/10 transition-colors focus:outline-none focus:ring-2 focus:ring-facam-blue"
+                aria-label="Mon compte"
+              >
+                <User className="size-4" />
+              </Link>
+            ) : (
+              <span className="rounded-full bg-facam-blue-tint p-2 text-facam-blue" aria-hidden>
+                <User className="size-4" />
+              </span>
+            )}
             <Link
               href="/login"
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-facam-blue-tint"

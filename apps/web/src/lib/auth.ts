@@ -52,7 +52,9 @@ export function clearAuthSession(): void {
 /** Route d'accueil par rôle (après login). */
 export const ROLE_HOME: Record<UserRole, string> = {
   student: '/student',
-  module_manager: '/module-manager',
+  employee: '/student',
+  module_manager_internal: '/module-manager',
+  module_manager_external: '/module-manager',
   admin: '/admin',
   support: '/support',
   platform_manager: '/admin',

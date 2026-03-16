@@ -3,9 +3,17 @@
  */
 
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateFormationDto } from './dto/create-formation.dto';
 import type { UpdateFormationDto } from './dto/update-formation.dto';
+
+/** Normalise moduleType en minuscules pour cohérence avec le schéma (interne | externe). */
+function normalizeModuleType(value: string | null | undefined): string | null {
+  if (value == null || typeof value !== 'string') return null;
+  const lower = value.toLowerCase();
+  return lower === 'interne' || lower === 'externe' ? lower : null;
+}
 
 @Injectable()
 export class FormationsService {
@@ -20,6 +28,7 @@ export class FormationsService {
         title: dto.title,
         subtitle: dto.subtitle,
         description: dto.description,
+        moduleType: dto.moduleType ?? null,
         imageUrl: dto.imageUrl,
         teaserVideoUrl: dto.teaserVideoUrl,
         level: dto.level,
@@ -46,12 +55,22 @@ export class FormationsService {
     const { userId, role, page, limit, catalogue } = params;
     const skip = (page - 1) * limit;
     const isStudent = role === 'student';
-    const isModuleManager = role === 'module_manager';
-    const where = isModuleManager
-      ? { managerId: userId }
-      : isStudent && !catalogue
-        ? { enrollments: { some: { userId } } }
-        : {};
+    const isEmployee = role === 'employee';
+    const isModuleManager =
+      role === 'module_manager_internal' || role === 'module_manager_external';
+    // moduleType en base peut être un ENUM (EXTERNE/INTERNE) ou texte (externe/interne) : on accepte les deux.
+    const where: Prisma.ModuleWhereInput = {};
+    if (isModuleManager) {
+      where.managerId = userId;
+      // Ne pas filtrer par moduleType : le responsable ne gère qu'un seul module (celui assigné par l'admin).
+    } else if ((isStudent || isEmployee) && !catalogue) {
+      where.enrollments = { some: { userId } };
+      if (isStudent) where.moduleType = { in: ['externe', 'EXTERNE'] };
+      else if (isEmployee) where.moduleType = { in: ['interne', 'INTERNE'] };
+    } else if (catalogue) {
+      if (isStudent) where.moduleType = { in: ['externe', 'EXTERNE'] };
+      else if (isEmployee) where.moduleType = { in: ['interne', 'INTERNE'] };
+    }
     const [data, total] = await Promise.all([
       this.prisma.module.findMany({
         where,
@@ -88,12 +107,16 @@ export class FormationsService {
         title: m.title,
         subtitle: m.subtitle,
         description: m.description,
+        prerequisites: m.prerequisites ?? null,
         imageUrl: m.imageUrl,
         firstVideoUrl: firstVideoByModule[m.id] ?? null,
         durationHours: 0,
         chaptersCount: m._count.chapters,
         quizCount: m._count.quizzes,
         level: m.level,
+        moduleType: normalizeModuleType((m as { moduleType?: string | null }).moduleType),
+        learningObjectives:
+          (m as { learningObjectives?: string | null }).learningObjectives ?? null,
         authorName: m.authorName,
         ...(enrollment
           ? {
@@ -157,6 +180,10 @@ export class FormationsService {
       title: module_.title,
       subtitle: module_.subtitle,
       description: module_.description,
+      prerequisites: module_.prerequisites ?? null,
+      learningObjectives:
+        (module_ as { learningObjectives?: string | null }).learningObjectives ?? null,
+      moduleType: normalizeModuleType(module_.moduleType),
       imageUrl: module_.imageUrl,
       firstVideoUrl: firstVideoByModule[id] ?? null,
       teaserVideoUrl: module_.teaserVideoUrl,
@@ -206,6 +233,11 @@ export class FormationsService {
         ...(dto.title !== undefined && { title: dto.title }),
         ...(dto.subtitle !== undefined && { subtitle: dto.subtitle }),
         ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.moduleType !== undefined && { moduleType: dto.moduleType }),
+        ...(dto.prerequisites !== undefined && { prerequisites: dto.prerequisites }),
+        ...(dto.learningObjectives !== undefined && {
+          learningObjectives: dto.learningObjectives,
+        }),
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
         ...(dto.teaserVideoUrl !== undefined && { teaserVideoUrl: dto.teaserVideoUrl }),
         ...(dto.level !== undefined && { level: dto.level }),
@@ -222,7 +254,8 @@ export class FormationsService {
   }
 
   /**
-   * Supprime un module (admin uniquement en production ; ici admin ou responsable).
+   * Supprime un module (admin ou responsable). Si le module a un responsable assigné,
+   * celui-ci est également supprimé pour garder la cohérence des données.
    */
   async supprimer(id: string, userId: string, role: string): Promise<{ message: string }> {
     const module_ = await this.prisma.module.findUnique({ where: { id } });
@@ -234,7 +267,13 @@ export class FormationsService {
     if (!peutSupprimer) {
       throw new ForbiddenException('Vous ne pouvez pas supprimer ce module');
     }
+    const managerId = module_.managerId;
     await this.prisma.module.delete({ where: { id } });
+    if (managerId) {
+      await this.prisma.user.delete({ where: { id: managerId } }).catch(() => {
+        // Ignore si l'utilisateur a déjà été supprimé (évite erreur en cas de race)
+      });
+    }
     return { message: 'Module supprimé' };
   }
 
@@ -272,5 +311,257 @@ export class FormationsService {
       select: { durationMinutes: true },
     });
     return items.reduce((acc, i) => acc + (i.durationMinutes ?? 0), 0);
+  }
+
+  /**
+   * Statistiques dashboard pour le responsable de module (uniquement ses modules).
+   * KPIs, graphique fin / en cours, par chapitre, inscriptions par mois, tableau étudiants.
+   */
+  async statsDashboard(
+    userId: string,
+    role: string,
+    year?: number
+  ): Promise<{
+    totalModules: number;
+    totalEnrolled: number;
+    completionRate: number;
+    avgQuizScore: number | null;
+    pie: {
+      finished: number;
+      inProgress: number;
+      finishedPercent: number;
+      inProgressPercent: number;
+    };
+    byChapter: { chapterId: string; chapterTitle: string; order: number; count: number }[];
+    enrollmentsByMonth: { month: number; count: number }[];
+    studentsTable: {
+      enrollmentId: string;
+      userId: string;
+      fullName: string;
+      email: string;
+      progressPercent: number;
+      completedAt: string | null;
+      quizzesCompleted: number;
+      totalQuizzes: number;
+      finalQuizScore: number | null;
+      finalQuizPassedAt: string | null;
+    }[];
+  }> {
+    const isManager = role === 'module_manager_internal' || role === 'module_manager_external';
+    const moduleWhereFinal: Prisma.ModuleWhereInput = isManager ? { managerId: userId } : {};
+    const moduleIds = (
+      await this.prisma.module.findMany({
+        where: moduleWhereFinal,
+        select: { id: true },
+      })
+    ).map((m) => m.id);
+
+    const totalModules = moduleIds.length;
+    if (totalModules === 0) {
+      return {
+        totalModules: 0,
+        totalEnrolled: 0,
+        completionRate: 0,
+        avgQuizScore: null,
+        pie: { finished: 0, inProgress: 0, finishedPercent: 0, inProgressPercent: 0 },
+        byChapter: [],
+        enrollmentsByMonth: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, count: 0 })),
+        studentsTable: [],
+      };
+    }
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: { moduleId: { in: moduleIds } },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        module: {
+          select: {
+            id: true,
+            _count: { select: { quizzes: true } },
+          },
+        },
+      },
+    });
+
+    const totalEnrolled = enrollments.length;
+    const finished = enrollments.filter((e) => e.completedAt != null).length;
+    const completionRate = totalEnrolled > 0 ? Math.round((finished / totalEnrolled) * 100) : 0;
+
+    const quizAttempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        quiz: { moduleId: { in: moduleIds }, isFinal: false },
+        scorePercent: { not: null },
+      },
+      select: { scorePercent: true },
+    });
+    const avgQuizScore =
+      quizAttempts.length > 0
+        ? Math.round(
+            quizAttempts.reduce((acc, a) => acc + (a.scorePercent ?? 0), 0) / quizAttempts.length
+          )
+        : null;
+
+    const finishedPercent = totalEnrolled > 0 ? Math.round((finished / totalEnrolled) * 100) : 0;
+    const inProgressPercent = totalEnrolled > 0 ? 100 - finishedPercent : 0;
+
+    const chapters = await this.prisma.chapter.findMany({
+      where: { moduleId: { in: moduleIds } },
+      orderBy: { order: 'asc' },
+      select: { id: true, title: true, order: true },
+    });
+    const byChapter = chapters.map((ch) => ({
+      chapterId: ch.id,
+      chapterTitle: ch.title,
+      order: ch.order,
+      count: enrollments.filter((e) => e.lastViewedChapterId === ch.id).length,
+    }));
+
+    const yearFilter = year ?? new Date().getFullYear();
+    const enrollmentsWithDate = await this.prisma.enrollment.findMany({
+      where: {
+        moduleId: { in: moduleIds },
+        enrolledAt: {
+          gte: new Date(yearFilter, 0, 1),
+          lt: new Date(yearFilter + 1, 0, 1),
+        },
+      },
+      select: { enrolledAt: true },
+    });
+    const monthCounts: Record<number, number> = {};
+    for (let m = 1; m <= 12; m++) monthCounts[m] = 0;
+    for (const e of enrollmentsWithDate) {
+      const m = e.enrolledAt.getMonth() + 1;
+      monthCounts[m] = (monthCounts[m] ?? 0) + 1;
+    }
+    const enrollmentsByMonth = Object.entries(monthCounts).map(([month, count]) => ({
+      month: Number(month),
+      count,
+    }));
+
+    const enrollmentIds = enrollments.map((e) => e.id);
+    const attemptsByEnrollment = await this.prisma.quizAttempt.groupBy({
+      by: ['enrollmentId', 'quizId'],
+      where: {
+        enrollmentId: { in: enrollmentIds },
+        passed: true,
+      },
+    });
+    const quizzesCompletedByEnrollment: Record<string, Set<string>> = {};
+    for (const a of attemptsByEnrollment) {
+      if (!a.enrollmentId) continue;
+      if (!quizzesCompletedByEnrollment[a.enrollmentId])
+        quizzesCompletedByEnrollment[a.enrollmentId] = new Set();
+      quizzesCompletedByEnrollment[a.enrollmentId].add(a.quizId);
+    }
+
+    const finalGrades = await this.prisma.finalQuizGrade.findMany({
+      where: { enrollmentId: { in: enrollmentIds } },
+      select: {
+        enrollmentId: true,
+        gradeOver20: true,
+        gradedAt: true,
+      },
+    });
+    const finalByEnrollment: Record<string, { gradeOver20: number; gradedAt: Date }> = {};
+    for (const g of finalGrades) {
+      finalByEnrollment[g.enrollmentId] = { gradeOver20: g.gradeOver20, gradedAt: g.gradedAt };
+    }
+
+    const studentsTable = enrollments.map((e) => {
+      const quizCount = (e.module as { _count?: { quizzes: number } })._count?.quizzes ?? 0;
+      const completedSet = quizzesCompletedByEnrollment[e.id];
+      const quizzesCompleted = completedSet ? completedSet.size : 0;
+      const finalInfo = finalByEnrollment[e.id];
+      return {
+        enrollmentId: e.id,
+        userId: e.user.id,
+        fullName: e.user.fullName,
+        email: e.user.email,
+        progressPercent: e.progressPercent,
+        completedAt: e.completedAt?.toISOString() ?? null,
+        quizzesCompleted,
+        totalQuizzes: quizCount,
+        finalQuizScore: finalInfo?.gradeOver20 ?? null,
+        finalQuizPassedAt: finalInfo?.gradedAt?.toISOString() ?? null,
+      };
+    });
+
+    return {
+      totalModules,
+      totalEnrolled,
+      completionRate,
+      avgQuizScore,
+      pie: {
+        finished,
+        inProgress: totalEnrolled - finished,
+        finishedPercent,
+        inProgressPercent,
+      },
+      byChapter,
+      enrollmentsByMonth,
+      studentsTable,
+    };
+  }
+
+  /**
+   * Détail d'un étudiant pour la page Stats : progression, score final, scores par quiz de chapitre.
+   */
+  async statsStudentDetail(
+    enrollmentId: string,
+    userId: string,
+    role: string
+  ): Promise<{
+    fullName: string;
+    progressPercent: number;
+    finalQuizScore: number | null;
+    finalQuizPassedAt: string | null;
+    chapterScores: { chapterTitle: string; scorePercent: number }[];
+  }> {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      include: {
+        user: { select: { fullName: true } },
+        module: {
+          select: { id: true, managerId: true },
+        },
+      },
+    });
+    if (!enrollment) {
+      throw new NotFoundException('Inscription introuvable');
+    }
+    const module_ = enrollment.module as { id: string; managerId: string | null };
+    const peutVoir =
+      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    if (!peutVoir) {
+      throw new ForbiddenException('Accès refusé');
+    }
+    const finalGrade = await this.prisma.finalQuizGrade.findFirst({
+      where: { enrollmentId },
+      select: { gradeOver20: true, gradedAt: true },
+    });
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId,
+        quiz: { moduleId: module_.id, isFinal: false },
+      },
+      include: {
+        quiz: {
+          include: {
+            chapter: { select: { title: true } },
+          },
+        },
+      },
+    });
+    const chapterScores = attempts.map((a) => ({
+      chapterTitle: (a.quiz.chapter as { title: string } | null)?.title ?? 'Quiz',
+      scorePercent: a.scorePercent ?? 0,
+    }));
+    return {
+      fullName: enrollment.user.fullName,
+      progressPercent: enrollment.progressPercent,
+      finalQuizScore: finalGrade?.gradeOver20 ?? null,
+      finalQuizPassedAt: finalGrade?.gradedAt?.toISOString() ?? null,
+      chapterScores,
+    };
   }
 }

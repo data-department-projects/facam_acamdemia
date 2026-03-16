@@ -10,11 +10,11 @@ import { RolesGuard } from '../core/guards/roles.guard';
 import { Roles } from '../core/decorators/roles.decorator';
 import { CurrentUser } from '../core/decorators/current-user.decorator';
 import type { UtilisateurPayload } from '../core/decorators/current-user.decorator';
-import { ROLES } from '../core/constants';
+import { ROLES, MODULE_MANAGER_ROLES } from '../core/constants';
 
 @Controller('grades')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER, ROLES.MODULE_MANAGER)
+@Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER, ...MODULE_MANAGER_ROLES)
 export class GradesController {
   constructor(private readonly gradesService: GradesService) {}
 

@@ -1,15 +1,14 @@
 /**
- * Mon module — Cours et chapitres (spec Module → Cours → Chapitres).
- * Le responsable ne voit que le module qui lui est assigné.
- * Données : GET /formations (filtré), GET /courses?moduleId=, GET /chapitres/course/:id.
- * Création : POST /courses, POST /chapitres (avec description, vidéo YouTube, quiz).
+ * Cours et contenus — Structure Module → Chapitres (sans niveau Cours).
+ * Le responsable voit son module, peut modifier image et prérequis, puis gérer les chapitres (créer, modifier, supprimer).
+ * Chaque chapitre peut avoir une vidéo et un quiz avec bonne réponse pour noter l'étudiant.
  */
 
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Plus, GripVertical, Video, FileQuestion, BookOpen } from 'lucide-react';
+import { Plus, GripVertical, Video, FileQuestion, BookOpen, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -21,14 +20,9 @@ interface ApiModule {
   id: string;
   title: string;
   description?: string;
-}
-
-interface ApiCourse {
-  id: string;
-  title: string;
-  description?: string | null;
-  order: number;
-  chapters?: ApiChapter[];
+  imageUrl?: string | null;
+  prerequisites?: string | null;
+  learningObjectives?: string | null;
 }
 
 interface ApiChapter {
@@ -40,7 +34,6 @@ interface ApiChapter {
   quizzes?: { id: string }[];
 }
 
-type CourseFormData = { title: string; description: string };
 type ChapterFormData = {
   title: string;
   description: string;
@@ -51,18 +44,22 @@ type ChapterFormData = {
 
 export default function ModuleManagerModulesPage() {
   const [modules, setModules] = useState<ApiModule[]>([]);
-  const [coursesByModule, setCoursesByModule] = useState<Record<string, ApiCourse[]>>({});
-  const [chaptersByCourse, setChaptersByCourse] = useState<Record<string, ApiChapter[]>>({});
+  const [chaptersByModule, setChaptersByModule] = useState<Record<string, ApiChapter[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [courseModal, setCourseModal] = useState(false);
-  const [courseModuleId, setCourseModuleId] = useState<string | null>(null);
-  const [courseForm, setCourseForm] = useState<CourseFormData>({ title: '', description: '' });
+  const [moduleEditModal, setModuleEditModal] = useState(false);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [moduleEditForm, setModuleEditForm] = useState({
+    imageUrl: '',
+    prerequisites: '',
+    learningObjectives: '',
+  });
 
-  const [chapterModal, setChapterModal] = useState<'new' | null>(null);
-  const [chapterCourseId, setChapterCourseId] = useState<string | null>(null);
+  const [chapterModal, setChapterModal] = useState<'new' | 'edit' | null>(null);
+  const [chapterModuleId, setChapterModuleId] = useState<string | null>(null);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [chapterForm, setChapterForm] = useState<ChapterFormData>({
     title: '',
     description: '',
@@ -72,6 +69,13 @@ export default function ModuleManagerModulesPage() {
   });
   const [chapterQuizQuestions, setChapterQuizQuestions] = useState<QuizQuestionForm[]>([]);
   const [chapterQuizMinScore, setChapterQuizMinScore] = useState(70);
+
+  const [chapterToDelete, setChapterToDelete] = useState<{
+    moduleId: string;
+    chapterId: string;
+    title: string;
+  } | null>(null);
+  const [deletingChapter, setDeletingChapter] = useState(false);
 
   const loadModules = useCallback(async () => {
     try {
@@ -86,21 +90,15 @@ export default function ModuleManagerModulesPage() {
     }
   }, []);
 
-  const loadCourses = useCallback(async (moduleId: string) => {
+  const loadChapters = useCallback(async (moduleId: string) => {
     try {
-      const list = await api.get<ApiCourse[]>(`/courses?moduleId=${encodeURIComponent(moduleId)}`);
-      setCoursesByModule((prev) => ({ ...prev, [moduleId]: Array.isArray(list) ? list : [] }));
+      const list = await api.get<ApiChapter[]>(`/chapitres/module/${moduleId}`);
+      setChaptersByModule((prev) => ({
+        ...prev,
+        [moduleId]: Array.isArray(list) ? list.sort((a, b) => a.order - b.order) : [],
+      }));
     } catch {
-      setCoursesByModule((prev) => ({ ...prev, [moduleId]: [] }));
-    }
-  }, []);
-
-  const loadChapters = useCallback(async (courseId: string) => {
-    try {
-      const list = await api.get<ApiChapter[]>(`/chapitres/course/${courseId}`);
-      setChaptersByCourse((prev) => ({ ...prev, [courseId]: Array.isArray(list) ? list : [] }));
-    } catch {
-      setChaptersByCourse((prev) => ({ ...prev, [courseId]: [] }));
+      setChaptersByModule((prev) => ({ ...prev, [moduleId]: [] }));
     }
   }, []);
 
@@ -110,47 +108,43 @@ export default function ModuleManagerModulesPage() {
 
   useEffect(() => {
     modules.forEach((m) => {
-      if (!coursesByModule[m.id]) loadCourses(m.id);
+      if (chaptersByModule[m.id] === undefined) loadChapters(m.id);
     });
-  }, [modules, coursesByModule, loadCourses]);
+  }, [modules, chaptersByModule, loadChapters]);
 
-  useEffect(() => {
-    Object.keys(coursesByModule).forEach((moduleId) => {
-      (coursesByModule[moduleId] ?? []).forEach((c) => {
-        if (chaptersByCourse[c.id] === undefined) loadChapters(c.id);
-      });
+  const openModuleEdit = (mod: ApiModule) => {
+    setEditingModuleId(mod.id);
+    setModuleEditForm({
+      imageUrl: mod.imageUrl ?? '',
+      prerequisites: mod.prerequisites ?? '',
+      learningObjectives: mod.learningObjectives ?? '',
     });
-  }, [coursesByModule, chaptersByCourse, loadChapters]);
-
-  const openNewCourse = (moduleId: string) => {
-    setCourseModuleId(moduleId);
-    setCourseForm({ title: '', description: '' });
-    setCourseModal(true);
+    setModuleEditModal(true);
   };
 
-  const saveCourse = async () => {
-    if (!courseModuleId) return;
+  const saveModuleEdit = async () => {
+    if (!editingModuleId) return;
     setSaving(true);
     setError(null);
     try {
-      await api.post('/courses', {
-        moduleId: courseModuleId,
-        title: courseForm.title.trim(),
-        description: courseForm.description.trim() || undefined,
+      await api.patch(`/formations/${editingModuleId}`, {
+        imageUrl: moduleEditForm.imageUrl.trim() || undefined,
+        prerequisites: moduleEditForm.prerequisites.trim() || undefined,
+        learningObjectives: moduleEditForm.learningObjectives.trim() || undefined,
       });
-      await loadCourses(courseModuleId);
-      setCourseModal(false);
-      setCourseModuleId(null);
+      await loadModules();
+      setModuleEditModal(false);
+      setEditingModuleId(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur création cours');
+      setError(e instanceof Error ? e.message : 'Erreur mise à jour module');
     } finally {
       setSaving(false);
     }
   };
 
-  const openNewChapter = (courseId: string) => {
-    const list = chaptersByCourse[courseId] ?? [];
-    setChapterCourseId(courseId);
+  const openNewChapter = (moduleId: string) => {
+    const list = chaptersByModule[moduleId] ?? [];
+    setChapterModuleId(moduleId);
     setChapterForm({
       title: '',
       description: '',
@@ -160,38 +154,63 @@ export default function ModuleManagerModulesPage() {
     });
     setChapterQuizQuestions([]);
     setChapterQuizMinScore(70);
+    setEditingChapterId(null);
     setChapterModal('new');
   };
 
+  const openEditChapter = (moduleId: string, ch: ApiChapter) => {
+    setChapterModuleId(moduleId);
+    setEditingChapterId(ch.id);
+    setChapterForm({
+      title: ch.title,
+      description: ch.description ?? '',
+      videoTitle: '',
+      videoUrl: '',
+      order: ch.order,
+    });
+    setChapterQuizQuestions([]);
+    setChapterQuizMinScore(70);
+    setChapterModal('edit');
+  };
+
   const saveChapter = async () => {
-    if (!chapterCourseId) return;
+    if (!chapterModuleId) return;
     setSaving(true);
     setError(null);
     try {
-      const payload = {
-        courseId: chapterCourseId,
-        title: chapterForm.title.trim(),
-        description: chapterForm.description.trim() || undefined,
-        order: chapterForm.order,
-        videoTitle: chapterForm.videoTitle.trim() || undefined,
-        videoUrl: chapterForm.videoUrl.trim() || undefined,
-        minScoreToPass: chapterQuizMinScore,
-        quizQuestions: chapterQuizQuestions.some(
-          (q) => q.questionText.trim() && q.options.some((o) => o.trim())
-        )
-          ? chapterQuizQuestions
-              .filter((q) => q.questionText.trim() && q.options.some((o) => o.trim()))
-              .map((q) => ({
-                questionText: q.questionText,
-                options: q.options,
-                correctIndex: q.correctIndex,
-              }))
-          : undefined,
-      };
-      await api.post('/chapitres', payload);
-      await loadChapters(chapterCourseId);
+      if (chapterModal === 'new') {
+        const payload = {
+          moduleId: chapterModuleId,
+          title: chapterForm.title.trim(),
+          description: chapterForm.description.trim() || undefined,
+          order: chapterForm.order,
+          videoTitle: chapterForm.videoTitle.trim() || undefined,
+          videoUrl: chapterForm.videoUrl.trim() || undefined,
+          minScoreToPass: chapterQuizMinScore,
+          quizQuestions: chapterQuizQuestions.some(
+            (q) => q.questionText.trim() && q.options.some((o) => o.trim())
+          )
+            ? chapterQuizQuestions
+                .filter((q) => q.questionText.trim() && q.options.some((o) => o.trim()))
+                .map((q) => ({
+                  questionText: q.questionText,
+                  options: q.options,
+                  correctIndex: q.correctIndex,
+                }))
+            : undefined,
+        };
+        await api.post('/chapitres', payload);
+      } else if (editingChapterId) {
+        await api.patch(`/chapitres/${editingChapterId}`, {
+          title: chapterForm.title.trim(),
+          description: chapterForm.description.trim() || undefined,
+          order: chapterForm.order,
+        });
+      }
+      await loadChapters(chapterModuleId);
       setChapterModal(null);
-      setChapterCourseId(null);
+      setChapterModuleId(null);
+      setEditingChapterId(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur enregistrement chapitre');
     } finally {
@@ -199,13 +218,30 @@ export default function ModuleManagerModulesPage() {
     }
   };
 
+  const confirmDeleteChapter = async () => {
+    if (!chapterToDelete) return;
+    setDeletingChapter(true);
+    setError(null);
+    try {
+      await api.delete(`/chapitres/${chapterToDelete.chapterId}`);
+      await loadChapters(chapterToDelete.moduleId);
+      setChapterToDelete(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur suppression');
+    } finally {
+      setDeletingChapter(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-facam-dark">Mon module — Cours et chapitres</h1>
+        <h1 className="text-2xl font-bold text-facam-dark">Cours et contenus</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Vous ne voyez que le module qui vous est assigné. Créez des cours, puis des chapitres
-          (titre, description, vidéo YouTube, quiz) dans chaque cours.
+          Module et chapitres (sans niveau Cours). Vous pouvez modifier l&apos;image et les
+          prérequis du module, puis gérer les chapitres (création, modification, suppression).
+          Chaque chapitre peut inclure une vidéo et un quiz ; la bonne réponse permet de noter
+          l&apos;étudiant et de le faire passer au chapitre suivant si le score minimum est atteint.
         </p>
       </div>
       {error && <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800">{error}</p>}
@@ -213,86 +249,109 @@ export default function ModuleManagerModulesPage() {
         <p className="text-sm text-gray-500">Chargement…</p>
       ) : modules.length === 0 ? (
         <p className="text-sm text-gray-500">
-          Aucun module assigné. L’administrateur doit vous attribuer un module.
+          Aucun module assigné. L&apos;administrateur doit vous attribuer un module.
         </p>
       ) : (
         <div className="space-y-6">
           {modules.map((mod) => {
-            const courses = (coursesByModule[mod.id] ?? []).sort((a, b) => a.order - b.order);
+            const chapters = (chaptersByModule[mod.id] ?? []).sort((a, b) => a.order - b.order);
             return (
               <Card key={mod.id} className="border-gray-200 shadow-sm">
                 <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{mod.title}</CardTitle>
-                    <Link href={`/module-manager/modules/${mod.id}/quiz`}>
-                      <Button variant="outline" size="sm">
-                        <FileQuestion className="mr-1 size-4" />
-                        Quiz final
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      {mod.imageUrl && (
+                        <img src={mod.imageUrl} alt="" className="h-14 w-24 rounded object-cover" />
+                      )}
+                      <CardTitle className="text-lg">{mod.title}</CardTitle>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openModuleEdit(mod)}
+                        aria-label="Modifier le module"
+                      >
+                        <Pencil className="mr-1 size-4" />
+                        Modifier le module
                       </Button>
-                    </Link>
+                      <Link href={`/module-manager/modules/${mod.id}/quiz`}>
+                        <Button variant="outline" size="sm">
+                          <FileQuestion className="mr-1 size-4" />
+                          Quiz final
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="mb-4 text-sm text-gray-600">{mod.description ?? ''}</p>
+                  <p className="mb-2 text-sm text-gray-600">{mod.description ?? ''}</p>
+                  {mod.prerequisites && (
+                    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 p-3 text-sm">
+                      <span className="font-medium text-gray-700">Prérequis :</span>{' '}
+                      {mod.prerequisites}
+                    </div>
+                  )}
 
-                  {courses.map((course) => {
-                    const chapters = (chaptersByCourse[course.id] ?? []).sort(
-                      (a, b) => a.order - b.order
-                    );
-                    return (
-                      <div
-                        key={course.id}
-                        className="mb-6 rounded-lg border border-gray-200 bg-gray-50/30 p-4"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <BookOpen className="size-4 text-facam-blue" />
-                          <span className="font-semibold text-facam-dark">{course.title}</span>
-                        </div>
-                        {course.description && (
-                          <p className="mb-3 text-sm text-gray-600">{course.description}</p>
-                        )}
-                        <div className="space-y-2">
-                          {chapters.length === 0 ? (
-                            <p className="text-sm text-gray-500">Aucun chapitre.</p>
-                          ) : (
-                            chapters.map((ch) => (
-                              <div
-                                key={ch.id}
-                                className="flex items-center gap-2 rounded border border-gray-200 bg-white p-3"
-                              >
-                                <GripVertical className="size-4 text-gray-400" aria-hidden />
-                                <span className="flex-1 font-medium text-facam-dark">
-                                  {ch.title}
-                                </span>
-                                <span className="flex items-center gap-2 text-xs text-gray-500">
-                                  {ch.items?.some((i) => i.videoUrl) && (
-                                    <Video className="size-3" />
-                                  )}
-                                  {(ch.quizzes?.length ?? 0) > 0 && (
-                                    <span className="text-amber-600">Quiz</span>
-                                  )}
-                                </span>
-                              </div>
-                            ))
-                          )}
-                          <Button
-                            variant="accent"
-                            size="sm"
-                            className="mt-2"
-                            onClick={() => openNewChapter(course.id)}
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/30 p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <BookOpen className="size-4 text-facam-blue" />
+                      <span className="font-semibold text-facam-dark">Chapitres</span>
+                    </div>
+                    <div className="space-y-2">
+                      {chapters.length === 0 ? (
+                        <p className="text-sm text-gray-500">Aucun chapitre.</p>
+                      ) : (
+                        chapters.map((ch) => (
+                          <div
+                            key={ch.id}
+                            className="flex items-center gap-2 rounded border border-gray-200 bg-white p-3"
                           >
-                            <Plus className="mr-1 size-4" />
-                            Ajouter un chapitre
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <Button variant="outline" size="sm" onClick={() => openNewCourse(mod.id)}>
-                    <Plus className="mr-1 size-4" />
-                    Ajouter un cours
-                  </Button>
+                            <GripVertical className="size-4 shrink-0 text-gray-400" aria-hidden />
+                            <span className="flex-1 font-medium text-facam-dark">{ch.title}</span>
+                            <span className="flex items-center gap-2 text-xs text-gray-500">
+                              {ch.items?.some((i) => i.videoUrl) && <Video className="size-3" />}
+                              {(ch.quizzes?.length ?? 0) > 0 && (
+                                <span className="text-amber-600">Quiz</span>
+                              )}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditChapter(mod.id, ch)}
+                              aria-label="Modifier le chapitre"
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() =>
+                                setChapterToDelete({
+                                  moduleId: mod.id,
+                                  chapterId: ch.id,
+                                  title: ch.title,
+                                })
+                              }
+                              aria-label="Supprimer le chapitre"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => openNewChapter(mod.id)}
+                      >
+                        <Plus className="mr-1 size-4" />
+                        Ajouter un chapitre
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -300,60 +359,85 @@ export default function ModuleManagerModulesPage() {
         </div>
       )}
 
-      {/* Modal : Ajouter un cours */}
+      {/* Modal : Compléter les infos du module (image, prérequis, objectifs) */}
       <Modal
-        open={courseModal}
+        open={moduleEditModal}
         onClose={() => {
-          setCourseModal(false);
-          setCourseModuleId(null);
+          setModuleEditModal(false);
+          setEditingModuleId(null);
         }}
-        title="Ajouter un cours"
+        title="Compléter les informations du module"
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            saveCourse();
+            saveModuleEdit();
           }}
           className="space-y-4"
         >
           <Input
-            label="Titre du cours"
-            value={courseForm.title}
-            onChange={(e) => setCourseForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="Ex. Maintenance préventive"
-            required
+            label="URL de l'image d'affichage"
+            value={moduleEditForm.imageUrl}
+            onChange={(e) => setModuleEditForm((f) => ({ ...f, imageUrl: e.target.value }))}
+            placeholder="https://..."
           />
+          <p className="text-xs text-gray-500">
+            Cette image sera affichée sur l&apos;interface étudiant pour représenter le module.
+          </p>
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-facam-dark">
-              Description (optionnel)
+            <label
+              htmlFor="module-prerequisites"
+              className="mb-1.5 block text-sm font-semibold text-facam-dark"
+            >
+              Prérequis
             </label>
             <textarea
-              value={courseForm.description}
-              onChange={(e) => setCourseForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Courte description du cours..."
-              rows={2}
+              id="module-prerequisites"
+              value={moduleEditForm.prerequisites}
+              onChange={(e) => setModuleEditForm((f) => ({ ...f, prerequisites: e.target.value }))}
+              placeholder="Connaissances nécessaires avant de suivre le module..."
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="module-learning-objectives"
+              className="mb-1.5 block text-sm font-semibold text-facam-dark"
+            >
+              Objectifs d&apos;apprentissage
+            </label>
+            <textarea
+              id="module-learning-objectives"
+              value={moduleEditForm.learningObjectives}
+              onChange={(e) =>
+                setModuleEditForm((f) => ({ ...f, learningObjectives: e.target.value }))
+              }
+              placeholder="Ce que l'étudiant va apprendre, compétences acquises à la fin..."
+              rows={4}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div className="flex gap-2">
             <Button type="submit" variant="accent" disabled={saving}>
-              {saving ? 'Création…' : 'Créer le cours'}
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setCourseModal(false)}>
+            <Button type="button" variant="outline" onClick={() => setModuleEditModal(false)}>
               Annuler
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Modal : Ajouter un chapitre (titre, description, vidéo YouTube, quiz) */}
+      {/* Modal : Ajouter ou modifier un chapitre */}
       <Modal
-        open={chapterModal === 'new'}
+        open={chapterModal !== null}
         onClose={() => {
           setChapterModal(null);
-          setChapterCourseId(null);
+          setChapterModuleId(null);
+          setEditingChapterId(null);
         }}
-        title="Ajouter un chapitre"
+        title={chapterModal === 'edit' ? 'Modifier le chapitre' : 'Ajouter un chapitre'}
       >
         <form
           onSubmit={(e) => {
@@ -366,7 +450,7 @@ export default function ModuleManagerModulesPage() {
             label="Titre du chapitre"
             value={chapterForm.title}
             onChange={(e) => setChapterForm((f) => ({ ...f, title: e.target.value }))}
-            placeholder="Ex. Introduction à la vidéo"
+            placeholder="Ex. Introduction"
             required
           />
           <div>
@@ -381,40 +465,51 @@ export default function ModuleManagerModulesPage() {
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
-          <Input
-            label="Titre de la vidéo (YouTube)"
-            value={chapterForm.videoTitle}
-            onChange={(e) => setChapterForm((f) => ({ ...f, videoTitle: e.target.value }))}
-            placeholder="Ex. Démonstration maintenance"
-          />
-          <Input
-            label="Lien de la vidéo (YouTube)"
-            value={chapterForm.videoUrl}
-            onChange={(e) => setChapterForm((f) => ({ ...f, videoUrl: e.target.value }))}
-            placeholder="https://www.youtube.com/watch?v=..."
-          />
+          {chapterModal === 'new' && (
+            <>
+              <Input
+                label="Titre de la vidéo (YouTube)"
+                value={chapterForm.videoTitle}
+                onChange={(e) => setChapterForm((f) => ({ ...f, videoTitle: e.target.value }))}
+                placeholder="Ex. Démonstration"
+              />
+              <Input
+                label="Lien de la vidéo (YouTube)"
+                value={chapterForm.videoUrl}
+                onChange={(e) => setChapterForm((f) => ({ ...f, videoUrl: e.target.value }))}
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </>
+          )}
           <Input
             label="Ordre"
             type="number"
             min={1}
             value={chapterForm.order}
             onChange={(e) =>
-              setChapterForm((f) => ({ ...f, order: Number.parseInt(e.target.value, 10) || 1 }))
+              setChapterForm((f) => ({
+                ...f,
+                order: Number.parseInt(e.target.value, 10) || 1,
+              }))
             }
           />
-          <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-            <p className="text-sm font-medium text-facam-dark mb-2">Quiz de fin de chapitre</p>
-            <p className="text-xs text-gray-500 mb-3">
-              Score minimum requis pour valider le chapitre (optionnel).
-            </p>
-            <QuizBuilder
-              title="Questions"
-              questions={chapterQuizQuestions}
-              onChange={setChapterQuizQuestions}
-              minScoreToPass={chapterQuizMinScore}
-              onMinScoreChange={setChapterQuizMinScore}
-            />
-          </div>
+          {chapterModal === 'new' && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+              <p className="mb-2 text-sm font-medium text-facam-dark">
+                Quiz de fin de chapitre (définir la bonne réponse pour noter l&apos;étudiant)
+              </p>
+              <p className="mb-3 text-xs text-gray-500">
+                Score minimum requis pour passer au chapitre suivant.
+              </p>
+              <QuizBuilder
+                title="Questions"
+                questions={chapterQuizQuestions}
+                onChange={setChapterQuizQuestions}
+                minScoreToPass={chapterQuizMinScore}
+                onMinScoreChange={setChapterQuizMinScore}
+              />
+            </div>
+          )}
           <div className="flex gap-2">
             <Button type="submit" variant="accent" disabled={saving}>
               {saving ? 'Enregistrement…' : 'Enregistrer'}
@@ -424,6 +519,40 @@ export default function ModuleManagerModulesPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal de confirmation de suppression d'un chapitre */}
+      <Modal
+        open={chapterToDelete !== null}
+        onClose={() => !deletingChapter && setChapterToDelete(null)}
+        title="Supprimer le chapitre"
+      >
+        {chapterToDelete && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Êtes-vous sûr de vouloir supprimer le chapitre{' '}
+              <strong>{chapterToDelete.title}</strong> ? Les contenus et quiz associés seront
+              supprimés. Cette action est irréversible.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setChapterToDelete(null)}
+                disabled={deletingChapter}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="accent"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={confirmDeleteChapter}
+                disabled={deletingChapter}
+              >
+                {deletingChapter ? 'Suppression…' : 'Supprimer'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

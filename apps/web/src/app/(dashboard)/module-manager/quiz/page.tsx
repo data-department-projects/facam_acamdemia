@@ -1,15 +1,13 @@
 /**
- * Quiz — Liste des modules depuis l’API pour accéder à la gestion des quiz par module.
+ * Quiz — Page dédiée au quiz final du module. Aucune redirection : on reste sur cette URL.
+ * Le responsable définit ici les questions et réponses du quiz final (même page, pas de lien vers une autre).
  */
 
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { FileQuestion, ArrowRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api-client';
+import { ModuleQuizClient } from '../modules/[id]/quiz/ModuleQuizClient';
 
 interface ModuleItem {
   id: string;
@@ -29,10 +27,12 @@ export default function ModuleManagerQuizPage() {
     api
       .get<Paginated<ModuleItem>>('/formations?limit=100')
       .then((res) => {
-        if (!cancelled)
-          setModules(
-            Array.isArray(res.data) ? res.data : ((res as { data?: ModuleItem[] }).data ?? [])
-          );
+        if (!cancelled) {
+          const list = Array.isArray(res.data)
+            ? res.data
+            : ((res as { data?: ModuleItem[] }).data ?? []);
+          setModules(list);
+        }
       })
       .catch(() => {
         if (!cancelled) setModules([]);
@@ -45,48 +45,31 @@ export default function ModuleManagerQuizPage() {
     };
   }, []);
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-facam-dark">Quiz</h1>
-      <p className="text-gray-600">
-        Les quiz sont rattachés à un module et à un chapitre (ou au quiz final). Sélectionnez un
-        module pour gérer ses quiz.
-      </p>
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <p className="text-gray-500">Chargement…</p>
+      </div>
+    );
+  }
 
-      <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Modules</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loading ? (
-            <p className="text-sm text-gray-500">Chargement des modules…</p>
-          ) : modules.length === 0 ? (
-            <p className="text-sm text-gray-500">Aucun module.</p>
-          ) : (
-            modules.map((mod) => (
-              <Link
-                key={mod.id}
-                href={`/module-manager/modules/${mod.id}/quiz`}
-                className="flex items-center justify-between rounded-lg border border-gray-200 p-4 transition-colors hover:bg-gray-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-facam-blue-tint p-2">
-                    <FileQuestion className="size-5 text-facam-blue" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-facam-dark">{mod.title}</p>
-                    <p className="text-sm text-gray-500">Quiz par chapitre + quiz final</p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">
-                  Gérer les quiz
-                  <ArrowRight className="ml-1 size-4" />
-                </Button>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
-    </div>
+  if (modules.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-facam-dark">Quiz final</h1>
+        <p className="text-sm text-gray-500">
+          Aucun module assigné. L&apos;administrateur doit vous attribuer un module.
+        </p>
+      </div>
+    );
+  }
+
+  const module = modules[0];
+  return (
+    <ModuleQuizClient
+      moduleId={module.id}
+      initialModule={{ id: module.id, title: module.title }}
+      embedded
+    />
   );
 }

@@ -18,6 +18,7 @@ import {
   Award,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   Clock,
   GraduationCap,
   Quote,
@@ -77,6 +78,107 @@ const STATS = [
   { value: '50+', label: 'Formations', icon: BookOpen },
   { value: '98%', label: 'Taux de réussite', icon: Award },
   { value: '30 j', label: 'Accès flexible', icon: Clock },
+];
+
+const LEARNING_OUTCOMES = [
+  {
+    title: 'Maîtriser les fondamentaux industriels',
+    description:
+      'Comprendre les bases de la maintenance, de la production et de la qualité pour être opérationnel sur le terrain.',
+  },
+  {
+    title: 'Obtenir une première expérience concrète',
+    description:
+      'Travailler sur des cas pratiques proches de la réalité des usines africaines et des projets industriels.',
+  },
+  {
+    title: 'Préparer votre employabilité',
+    description:
+      'Découvrir les compétences recherchées par les recruteurs et structurer un parcours crédible sur votre CV.',
+  },
+  {
+    title: 'Monter en compétences en continu',
+    description:
+      'Mettre à jour vos connaissances avec des modules courts, des quiz et des ressources téléchargeables.',
+  },
+];
+
+const AWARDS = [
+  {
+    title: 'Label qualité formation',
+    description:
+      'Reconnaissance interne pour la qualité pédagogique et la satisfaction des apprenants.',
+  },
+  {
+    title: 'Partenariats industriels',
+    description:
+      'Collaborations avec des industriels pour co-construire les contenus et cas pratiques.',
+  },
+  {
+    title: 'Distinctions académiques',
+    description: 'Programmes recommandés par des enseignants et responsables pédagogiques.',
+  },
+];
+
+const BRANDS = [
+  { name: 'FACAM Industrie', tagline: 'Partenaire formation', logo: '/brands/facam-industrie.png' },
+  {
+    name: 'Stairway Skills',
+    tagline: 'Soft skills & leadership',
+    logo: '/brands/stairway-skills.png',
+  },
+  { name: 'QHSE Lab', tagline: 'Qualité & sécurité', logo: '/brands/qhse-lab.png' },
+  {
+    name: 'ProdFlow Academy',
+    tagline: 'Production & logistique',
+    logo: '/brands/prodflow-academy.png',
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: "Qu'est-ce que FACAM ACADEMIA et comment fonctionne la plateforme ?",
+    answer:
+      "FACAM ACADEMIA est une plateforme e-learning dédiée aux métiers de l'industrie. Vous suivez des modules en ligne (vidéos, quiz, ressources) puis validez un parcours pour obtenir un certificat.",
+  },
+  {
+    question: "L'utilisation de la plateforme est-elle gratuite ?",
+    answer:
+      "L'accès dépend de votre statut : certains parcours sont pris en charge par l'entreprise ou un partenaire, d'autres sont accessibles via un compte apprenant créé par l'administrateur.",
+  },
+  {
+    question: 'Comment assurez-vous ma progression et ma réussite ?',
+    answer:
+      'Chaque module est structuré en chapitres avec quiz, activités pratiques et un suivi de progression pour vous aider à atteindre vos objectifs.',
+  },
+  {
+    question: 'Puis-je suivre les formations depuis mon pays en Afrique ?',
+    answer:
+      "Oui, la plateforme est accessible en ligne partout où vous disposez d'une connexion Internet, sur ordinateur comme sur mobile.",
+  },
+  {
+    question: "À quel type de contenu puis-je m'attendre ?",
+    answer:
+      'Des vidéos courtes, des démonstrations, des cas pratiques, des quiz et des ressources téléchargeables, le tout orienté terrain et adapté aux réalités industrielles.',
+  },
+];
+
+const ENTERPRISE_BENEFITS = [
+  {
+    title: 'Former vos équipes aux standards industriels',
+    description:
+      'Construisez des parcours ciblés par métier (maintenance, production, QHSE) pour accélérer la montée en compétences.',
+  },
+  {
+    title: 'Suivre la progression en temps réel',
+    description:
+      'Tableaux de bord, taux de complétion et certificats pour piloter vos plans de formation.',
+  },
+  {
+    title: 'Adapter les contenus à votre contexte',
+    description:
+      'Possibilité de co-construire des cas issus de vos lignes de production et de vos référentiels internes.',
+  },
 ];
 
 /** Programmes phares — chemins vers les images dans public (maintenance.jpg, production.jpg, qhse.jpg) */
@@ -329,6 +431,30 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
+      {/* Ce que vous apprendrez — remplace "Que recherchez-vous aujourd'hui ?" */}
+      <SectionShell className="bg-facam-dark py-20 text-white">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-bold">Ce que vous apprendrez</h2>
+            <p className="mt-3 text-white/75">
+              Des compétences concrètes pour passer de la théorie à la pratique, que vous soyez
+              étudiant ou déjà en poste dans l’industrie.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {LEARNING_OUTCOMES.map((item, idx) => (
+            <Reveal key={item.title} delay={0.06 * idx}>
+              <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
+                <h3 className="text-lg font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm text-white/80 leading-relaxed">{item.description}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </SectionShell>
+
       {/* Valeur immédiate — 3 cartes premium */}
       <SectionShell className="bg-white py-16">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start">
@@ -431,6 +557,33 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
+      {/* Récompenses et reconnaissances */}
+      <SectionShell className="bg-gray-50 py-16">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-3xl font-bold text-facam-dark">Nos récompenses</h2>
+            <p className="mt-3 text-gray-600">
+              Une plateforme reconnue pour la qualité de ses contenus, sa proximité avec le terrain
+              et son impact sur l’employabilité des jeunes.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {AWARDS.map((award, idx) => (
+            <Reveal key={award.title} delay={0.06 * idx}>
+              <div className="h-full rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm">
+                <div className="inline-flex size-10 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
+                  <Award className="size-5" aria-hidden />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-facam-dark">{award.title}</h3>
+                <p className="mt-2 text-sm text-gray-600 leading-relaxed">{award.description}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </SectionShell>
+
       {/* Programmes — cartes inspirées "valeur ajoutée" + courses */}
       <SectionShell id="programmes" className="bg-white py-20">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
@@ -497,14 +650,45 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
-      {/* Témoignages — inspiré, mais adapté FACAM */}
+      {/* Nos marques / partenaires formation */}
+      <SectionShell className="bg-white py-16">
+        <Reveal>
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-sm font-semibold text-facam-blue">Notre écosystème</p>
+            <h2 className="mt-2 text-3xl font-bold text-facam-dark">Nos marques & partenaires</h2>
+            <p className="mt-3 text-gray-600">
+              Des entités spécialisées pour couvrir l’ensemble des métiers de l’industrie et des
+              compétences transverses.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-4">
+          {BRANDS.map((brand, idx) => (
+            <Reveal key={brand.name} delay={0.05 * idx}>
+              <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-gray-200 bg-white px-4 py-6 shadow-sm">
+                <div className="relative mb-3 flex h-12 w-24 items-center justify-center rounded-xl bg-facam-blue-tint">
+                  {/* Placeholder logo — à remplacer par les visuels marketing */}
+                  <span className="text-xs font-semibold text-facam-blue text-center px-2">
+                    {brand.name}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 text-center">{brand.tagline}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </SectionShell>
+
+      {/* Témoignages — avis de nos apprenants */}
       <section className="bg-facam-dark py-20 text-white">
         <div className="container-custom">
           <Reveal>
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold">Ils progressent avec {APP_NAME}</h2>
+              <h2 className="text-3xl font-bold">Avis de nos apprenants</h2>
               <p className="mt-3 text-white/75">
-                Des retours concrets sur l’impact des parcours, la clarté et l’accompagnement.
+                Des retours concrets sur l’impact des parcours, la clarté de la plateforme et
+                l’accompagnement proposé.
               </p>
             </div>
           </Reveal>
@@ -530,6 +714,99 @@ export function HomeLanding() {
           </div>
         </div>
       </section>
+
+      {/* Espace entreprise */}
+      <SectionShell id="entreprises" className="bg-gray-50 py-20">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
+          <Reveal className="lg:col-span-6">
+            <p className="text-sm font-semibold text-facam-blue">Espace entreprise</p>
+            <h2 className="mt-2 text-3xl font-bold text-facam-dark">
+              Formez vos équipes aux métiers de l’industrie
+            </h2>
+            <p className="mt-3 text-gray-600 leading-relaxed">
+              FACAM ACADEMIA accompagne les entreprises industrielles dans la montée en compétences
+              de leurs collaborateurs, en Afrique et au-delà.
+            </p>
+
+            <div className="mt-6 space-y-3">
+              {ENTERPRISE_BENEFITS.map((benefit) => (
+                <div key={benefit.title} className="flex items-start gap-3 text-sm text-gray-700">
+                  <CheckCircle2 className="mt-0.5 size-5 text-facam-blue" aria-hidden />
+                  <div>
+                    <p className="font-semibold text-facam-dark">{benefit.title}</p>
+                    <p className="text-gray-600">{benefit.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/login">
+                <Button variant="primary">
+                  Accéder à la plateforme <ArrowRight />
+                </Button>
+              </Link>
+              <Link href="#footer">
+                <Button variant="outline" className="border-facam-blue/30 text-facam-blue">
+                  Discuter d’un projet de formation
+                </Button>
+              </Link>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.12} className="lg:col-span-6">
+            <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+              {/* Image de présentation de l'entreprise — à remplacer par un visuel fourni */}
+              <div className="relative aspect-[16/9] w-full bg-facam-blue-tint">
+                <Image
+                  src="/entreprise.jpg"
+                  alt="Présentation de l’entreprise et de ses installations"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 560px"
+                />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/0 to-transparent" />
+              </div>
+              <div className="p-6">
+                <p className="text-sm font-semibold text-facam-blue">À propos de FACAM ACADEMIA</p>
+                <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                  Une équipe de formateurs et d’ingénieurs passionnés, engagés pour préparer les
+                  talents africains aux futurs métiers de l’industrie.
+                </p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </SectionShell>
+
+      {/* FAQ */}
+      <SectionShell id="faq" className="bg-white py-20">
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold text-facam-dark">Foire aux questions (FAQ)</h2>
+            <p className="mt-3 text-gray-600">
+              Quelques réponses rapides aux questions les plus fréquentes de nos apprenants et
+              partenaires.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mx-auto mt-10 max-w-3xl space-y-3">
+          {FAQ_ITEMS.map((item, idx) => (
+            <Reveal key={item.question} delay={0.04 * idx}>
+              <details className="group rounded-2xl border border-gray-200 bg-white p-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left">
+                  <span className="text-sm font-semibold text-facam-dark">{item.question}</span>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-transform group-open:rotate-180">
+                    <ChevronDown className="size-4" aria-hidden />
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm text-gray-600 leading-relaxed">{item.answer}</p>
+              </details>
+            </Reveal>
+          ))}
+        </div>
+      </SectionShell>
 
       {/* CTA final */}
       <SectionShell className="bg-white py-20">

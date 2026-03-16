@@ -27,6 +27,7 @@ interface QuizBuilderProps {
   onMinScoreChange?: (value: number) => void;
   submitLabel?: string;
   onSubmit?: () => void;
+  submitDisabled?: boolean;
 }
 
 function generateId(): string {
@@ -41,6 +42,7 @@ export function QuizBuilder({
   onMinScoreChange,
   submitLabel = 'Enregistrer le quiz',
   onSubmit,
+  submitDisabled = false,
 }: QuizBuilderProps) {
   const [expandedId, setExpandedId] = useState<string | null>(questions[0]?.id ?? null);
 
@@ -127,13 +129,20 @@ export function QuizBuilder({
                 key={q.id}
                 className="rounded-lg border border-gray-200 bg-gray-50/50 overflow-hidden"
               >
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="flex w-full items-center gap-2 p-3 cursor-pointer hover:bg-gray-100/80 text-left"
                   onClick={() => setExpandedId(expandedId === q.id ? null : q.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setExpandedId(expandedId === q.id ? null : q.id);
+                    }
+                  }}
                 >
-                  <GripVertical className="size-4 text-gray-400" aria-hidden />
-                  <span className="font-medium text-facam-dark">
+                  <GripVertical className="size-4 text-gray-400 shrink-0" aria-hidden />
+                  <span className="font-medium text-facam-dark flex-1 min-w-0">
                     Question {idx + 1}
                     {q.questionText &&
                       ` : ${q.questionText.slice(0, 40)}${q.questionText.length > 40 ? '…' : ''}`}
@@ -141,7 +150,7 @@ export function QuizBuilder({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="ml-auto"
+                    className="ml-auto shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       removeQuestion(q.id);
@@ -150,7 +159,7 @@ export function QuizBuilder({
                   >
                     <Trash2 className="size-4 text-red-500" />
                   </Button>
-                </button>
+                </div>
                 {expandedId === q.id && (
                   <div className="p-4 pt-0 space-y-4 border-t border-gray-100">
                     <Input
@@ -163,27 +172,44 @@ export function QuizBuilder({
                     <div>
                       <p
                         id={`options-label-${q.id}`}
-                        className="text-sm font-medium text-gray-700 mb-2"
+                        className="text-sm font-medium text-gray-700 mb-1"
                       >
-                        Réponses (choix multiple — une seule bonne)
+                        Choix de réponse
+                      </p>
+                      <p className="text-xs text-gray-500 mb-3">
+                        Saisissez chaque proposition, puis <strong>cochez « Bonne réponse »</strong>{' '}
+                        pour le seul choix correct. C&#39;est sur cette indication que
+                        l&#39;étudiant sera noté.
                       </p>
                       {q.options.map((opt, oi) => (
-                        <div key={`${q.id}-opt-${oi}`} className="flex items-center gap-2 mb-2">
-                          <input
-                            type="radio"
-                            name={`correct-${q.id}`}
-                            checked={q.correctIndex === oi}
-                            onChange={() => setCorrect(q.id, oi)}
-                            className="text-facam-yellow focus:ring-facam-yellow"
-                            aria-label={`Bonne réponse : ${opt || 'option ' + (oi + 1)}`}
-                          />
+                        <div
+                          key={`${q.id}-opt-${oi}`}
+                          className={`flex flex-wrap items-center gap-2 mb-2 p-2 rounded-lg border ${
+                            q.correctIndex === oi
+                              ? 'border-green-500 bg-green-50/50'
+                              : 'border-gray-200'
+                          }`}
+                        >
                           <input
                             type="text"
                             value={opt}
                             onChange={(e) => updateOption(q.id, oi, e.target.value)}
                             placeholder={`Choix ${oi + 1}`}
-                            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            className="flex-1 min-w-[120px] rounded-lg border border-gray-300 px-3 py-2 text-sm"
                           />
+                          <label className="flex items-center gap-2 shrink-0 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`correct-${q.id}`}
+                              checked={q.correctIndex === oi}
+                              onChange={() => setCorrect(q.id, oi)}
+                              className="text-green-600 focus:ring-green-500"
+                              aria-label="Bonne réponse"
+                            />
+                            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                              Bonne réponse
+                            </span>
+                          </label>
                           {q.options.length > 2 && (
                             <Button
                               variant="ghost"
@@ -214,7 +240,7 @@ export function QuizBuilder({
 
         {onSubmit && questions.length > 0 && (
           <div className="pt-4 border-t border-gray-100">
-            <Button variant="accent" onClick={onSubmit}>
+            <Button variant="accent" onClick={onSubmit} disabled={submitDisabled}>
               {submitLabel}
             </Button>
           </div>

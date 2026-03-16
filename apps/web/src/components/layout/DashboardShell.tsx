@@ -10,6 +10,14 @@ import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { StudentLayout } from '@/components/layout/StudentLayout';
 import { getStoredUser, type StoredUser } from '@/lib/auth';
+import type { UserRole } from '@/types';
+
+function getCompteHref(role: UserRole): string | undefined {
+  if (role === 'admin' || role === 'platform_manager') return '/admin/compte';
+  if (role === 'module_manager_internal' || role === 'module_manager_external')
+    return '/module-manager/compte';
+  return undefined;
+}
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -42,8 +50,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Layout spécifique Étudiant (Udemy Clone)
-  if (user.role === 'student') {
+  // Layout spécifique Étudiant / Employé (Udemy Clone)
+  if (user.role === 'student' || user.role === 'employee') {
     return <StudentLayout user={user}>{children}</StudentLayout>;
   }
 
@@ -56,6 +64,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           showSidebarToggle
           onMenuClick={handleMenuClick}
           user={{ fullName: user.fullName, email: user.email, role: user.role }}
+          compteHref={getCompteHref(user.role)}
         />
         <main className="flex-1 bg-gray-50 p-4 md:p-6" role="main">
           {children}
