@@ -4,3 +4,5 @@ dist
 coverage
 .turbo
 package-lock.json
+# Migrations Prisma (fichiers SQL générés)
+apps/api/prisma/migrations

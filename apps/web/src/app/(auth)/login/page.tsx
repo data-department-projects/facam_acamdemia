@@ -111,7 +111,7 @@ export default function LoginPage() {
         <p className="mt-2 text-gray-600">Connectez-vous pour continuer votre apprentissage.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" suppressHydrationWarning>
         <Input
           label="Email professionnel"
           type="email"

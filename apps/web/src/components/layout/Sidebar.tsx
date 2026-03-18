@@ -15,6 +15,7 @@ import {
   GraduationCap,
   FolderOpen,
   BarChart3,
+  UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/types';
@@ -30,12 +31,14 @@ const moduleManagerNav = [
   { href: '/module-manager/modules', label: 'Cours & contenus', icon: FolderOpen },
   { href: '/module-manager/quiz', label: 'Quiz', icon: FileQuestion },
   { href: '/module-manager/stats', label: 'Statistiques', icon: BarChart3 },
+  { href: '/module-manager/compte', label: 'Mon compte', icon: UserCircle },
 ];
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard global', icon: LayoutDashboard },
   { href: '/admin/modules', label: 'Gestion des modules', icon: BookOpen },
   { href: '/admin/users', label: 'Gestion utilisateurs', icon: Users },
+  { href: '/admin/compte', label: 'Mon compte', icon: UserCircle },
 ];
 
 const supportNav = [
@@ -48,8 +51,10 @@ function getNavForRole(
 ): { href: string; label: string; icon: typeof LayoutDashboard }[] {
   switch (role) {
     case 'student':
+    case 'employee':
       return studentNav;
-    case 'module_manager':
+    case 'module_manager_internal':
+    case 'module_manager_external':
       return moduleManagerNav;
     case 'admin':
     case 'platform_manager':

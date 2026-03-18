@@ -10,6 +10,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { FileQuestion, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api-client';
 
 interface ChapterVideoAndQuizProps {
   embedUrl: string | null;
@@ -17,7 +18,11 @@ interface ChapterVideoAndQuizProps {
   description?: string;
   moduleId: string;
   chapterId: string;
+  enrollmentId: string | null;
+  videoItemId: string | null;
+  quizItemId: string | null;
   quizId: string | null;
+  nextHref: string;
 }
 
 export function ChapterVideoAndQuiz({
@@ -25,8 +30,12 @@ export function ChapterVideoAndQuiz({
   chapterTitle,
   description,
   moduleId,
-  chapterId: _chapterId,
+  chapterId,
+  enrollmentId,
+  videoItemId,
+  quizItemId,
   quizId,
+  nextHref,
 }: ChapterVideoAndQuizProps) {
   const [videoMarkedComplete, setVideoMarkedComplete] = useState(false);
   const quizUnlocked = videoMarkedComplete && quizId;
@@ -67,7 +76,23 @@ export function ChapterVideoAndQuiz({
           <Button
             variant="accent"
             className="w-full sm:w-auto"
-            onClick={() => setVideoMarkedComplete(true)}
+            onClick={async () => {
+              setVideoMarkedComplete(true);
+              if (!enrollmentId) return;
+              try {
+                if (videoItemId) {
+                  await api.post(`/enrollments/${enrollmentId}/complete-item`, {
+                    chapterItemId: videoItemId,
+                  });
+                }
+                await api.patch(`/enrollments/${enrollmentId}/progression`, {
+                  lastViewedChapterId: chapterId,
+                  lastViewedItemId: videoItemId ?? undefined,
+                });
+              } catch {
+                // best-effort: ne pas bloquer l'UX si la sauvegarde échoue
+              }
+            }}
           >
             J&apos;ai terminé la vidéo — débloquer le quiz
           </Button>
@@ -77,7 +102,9 @@ export function ChapterVideoAndQuiz({
               <CheckCircle className="size-4 text-facam-yellow" />
               Quiz débloqué
             </span>
-            <Link href={`/student/modules/${moduleId}/quiz?quizId=${quizId}`}>
+            <Link
+              href={`/student/modules/${moduleId}/quiz?quizId=${quizId}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapterId)}&quizItemId=${encodeURIComponent(quizItemId ?? '')}`}
+            >
               <Button variant="accent" size="md">
                 <FileQuestion className="mr-2 size-4" />
                 Passer le quiz du chapitre

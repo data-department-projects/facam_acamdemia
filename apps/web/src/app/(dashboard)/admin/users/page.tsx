@@ -1,6 +1,7 @@
 /**
- * Gestion des utilisateurs — Liste des comptes et création (étudiant, responsable de module).
- * Branché sur l'API : GET /users, POST /users, GET /formations pour les modules.
+ * Gestion des utilisateurs — Liste, création, modification (PATCH) et suppression (DELETE).
+ * Rôles : Étudiant, Employé, Responsable module interne, Responsable module externe.
+ * API : GET /users, POST /users, GET /users/:id, PATCH /users/:id, DELETE /users/:id.
  */
 
 'use client';
@@ -9,21 +10,25 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api-client';
 
 const ROLE_LABELS: Record<string, string> = {
   student: 'Étudiant',
-  module_manager: 'Responsable module',
+  employee: 'Employé',
+  module_manager_internal: 'Responsable module interne',
+  module_manager_external: 'Responsable module externe',
   admin: 'Administrateur',
   platform_manager: 'Responsable plateforme',
   support: 'Support technique',
 };
 
-type CreateRole = 'student' | 'module_manager';
+type CreateRole = 'student' | 'employee' | 'module_manager_internal' | 'module_manager_external';
 
 interface ModuleItem {
   id: string;
   title: string;
+  moduleType?: string | null;
 }
 
 interface UserItem {
@@ -31,6 +36,7 @@ interface UserItem {
   email: string;
   fullName: string;
   role: string;
+  moduleId?: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -47,6 +53,17 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [loadingList, setLoadingList] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [editModal, setEditModal] = useState(false);
+  const [editUser, setEditUser] = useState<UserItem | null>(null);
+  const [editFullName, setEditFullName] = useState('');
+  const [editRole, setEditRole] = useState<CreateRole | string>('student');
+  const [editModuleId, setEditModuleId] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [userToDelete, setUserToDelete] = useState<UserItem | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -81,8 +98,23 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => {
-    if (showForm) loadModules();
-  }, [showForm, loadModules]);
+    if (showForm || editModal) loadModules();
+  }, [showForm, editModal, loadModules]);
+
+  const managerModulesInternal = modules.filter((m) => m.moduleType === 'interne');
+  const managerModulesExternal = modules.filter((m) => m.moduleType === 'externe');
+  const managerModulesForRole =
+    role === 'module_manager_internal'
+      ? managerModulesInternal
+      : role === 'module_manager_external'
+        ? managerModulesExternal
+        : [];
+  const managerModulesForEditRole =
+    editRole === 'module_manager_internal'
+      ? managerModulesInternal
+      : editRole === 'module_manager_external'
+        ? managerModulesExternal
+        : [];
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -95,7 +127,9 @@ export default function AdminUsersPage() {
         password,
         role,
       };
-      if (role === 'module_manager' && moduleId) payload.moduleId = moduleId;
+      if ((role === 'module_manager_internal' || role === 'module_manager_external') && moduleId) {
+        payload.moduleId = moduleId;
+      }
       await api.post('/users', payload);
       setMessage('success');
       setMessageText('Compte créé avec succès.');
@@ -107,10 +141,73 @@ export default function AdminUsersPage() {
       await loadUsers();
     } catch (err) {
       setMessage('error');
-      const msg = err instanceof Error ? err.message : 'Erreur lors de la création du compte.';
-      setMessageText(msg);
+      setMessageText(err instanceof Error ? err.message : 'Erreur lors de la création du compte.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEdit = (u: UserItem) => {
+    setEditUser(u);
+    setEditFullName(u.fullName);
+    setEditRole(
+      u.role === 'module_manager_internal' ||
+        u.role === 'module_manager_external' ||
+        u.role === 'student' ||
+        u.role === 'employee'
+        ? u.role
+        : 'student'
+    );
+    setEditModuleId(u.moduleId ?? '');
+    setEditPassword('');
+    setEditModal(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setSavingEdit(true);
+    setMessage(null);
+    try {
+      const payload: Record<string, string | null> = {
+        fullName: editFullName.trim(),
+        role: editRole as string,
+      };
+      if (editRole === 'module_manager_internal' || editRole === 'module_manager_external') {
+        payload.moduleId = editModuleId || null;
+      } else {
+        payload.moduleId = null;
+      }
+      if (editPassword.trim()) payload.password = editPassword;
+      await api.patch(`/users/${editUser.id}`, payload);
+      setMessage('success');
+      setMessageText('Utilisateur mis à jour.');
+      setEditModal(false);
+      setEditUser(null);
+      await loadUsers();
+    } catch (err) {
+      setMessage('error');
+      setMessageText(err instanceof Error ? err.message : 'Erreur lors de la mise à jour.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeletingUser(true);
+    setMessage(null);
+    try {
+      await api.delete(`/users/${userToDelete.id}`);
+      setMessage('success');
+      setMessageText('Utilisateur supprimé.');
+      setUserToDelete(null);
+      await loadUsers();
+    } catch (err) {
+      setMessage('error');
+      setMessageText(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -163,7 +260,9 @@ export default function AdminUsersPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="student">Étudiant</option>
-                  <option value="module_manager">Responsable de module</option>
+                  <option value="employee">Employé</option>
+                  <option value="module_manager_internal">Responsable module interne</option>
+                  <option value="module_manager_external">Responsable module externe</option>
                 </select>
               </div>
               <Input
@@ -190,7 +289,7 @@ export default function AdminUsersPage() {
                 minLength={6}
                 required
               />
-              {role === 'module_manager' && (
+              {(role === 'module_manager_internal' || role === 'module_manager_external') && (
                 <div>
                   <label
                     htmlFor="create-module"
@@ -201,21 +300,30 @@ export default function AdminUsersPage() {
                   <select
                     id="create-module"
                     value={moduleId}
-                    onChange={(e) => setModuleId(e.target.value)}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setModuleId(id);
+                      const mod = modules.find((m) => m.id === id);
+                      if (mod?.moduleType) {
+                        const isInterne = String(mod.moduleType).toLowerCase() === 'interne';
+                        setRole(isInterne ? 'module_manager_internal' : 'module_manager_external');
+                      }
+                    }}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                    required={role === 'module_manager'}
+                    required
                   >
                     <option value="">— Sélectionner un module —</option>
-                    {modules.map((m) => (
+                    {managerModulesForRole.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.title}
                       </option>
                     ))}
                   </select>
-                  {modules.length === 0 && (
+                  {managerModulesForRole.length === 0 && (
                     <p className="mt-1 text-xs text-amber-600">
-                      Aucun module pour l’instant. Créez-en un depuis la section Formations /
-                      Modules.
+                      Aucun module {role === 'module_manager_internal' ? 'interne' : 'externe'}.
+                      Créez-en un (type {role === 'module_manager_internal' ? 'Interne' : 'Externe'}
+                      ) dans Gestion des modules.
                     </p>
                   )}
                 </div>
@@ -248,12 +356,13 @@ export default function AdminUsersPage() {
                     <th className="pb-3 font-medium text-gray-700">Nom</th>
                     <th className="pb-3 font-medium text-gray-700">Email</th>
                     <th className="pb-3 font-medium text-gray-700">Rôle</th>
+                    <th className="pb-3 font-medium text-gray-700 w-32">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="py-6 text-center text-gray-500">
+                      <td colSpan={4} className="py-6 text-center text-gray-500">
                         Aucun utilisateur. Créez un compte avec le bouton « Nouvel utilisateur ».
                       </td>
                     </tr>
@@ -267,6 +376,21 @@ export default function AdminUsersPage() {
                             {ROLE_LABELS[u.role] ?? u.role}
                           </span>
                         </td>
+                        <td className="py-3">
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(u)}>
+                              Modifier
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => setUserToDelete(u)}
+                            >
+                              Supprimer
+                            </Button>
+                          </div>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -276,6 +400,126 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      <Modal
+        open={editModal}
+        onClose={() => {
+          setEditModal(false);
+          setEditUser(null);
+        }}
+        title="Modifier l'utilisateur"
+      >
+        {editUser && (
+          <form onSubmit={handleUpdate} className="space-y-4">
+            <p className="text-sm text-gray-600">Email : {editUser.email}</p>
+            <Input
+              label="Nom complet"
+              value={editFullName}
+              onChange={(e) => setEditFullName(e.target.value)}
+              required
+            />
+            <div>
+              <label htmlFor="edit-role" className="block text-sm font-medium text-gray-700 mb-1">
+                Rôle
+              </label>
+              <select
+                id="edit-role"
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value as CreateRole | string)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="student">Étudiant</option>
+                <option value="employee">Employé</option>
+                <option value="module_manager_internal">Responsable module interne</option>
+                <option value="module_manager_external">Responsable module externe</option>
+              </select>
+            </div>
+            {(editRole === 'module_manager_internal' || editRole === 'module_manager_external') && (
+              <div>
+                <label
+                  htmlFor="edit-module"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Module assigné
+                </label>
+                <select
+                  id="edit-module"
+                  value={editModuleId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setEditModuleId(id);
+                    const mod = modules.find((m) => m.id === id);
+                    if (mod?.moduleType) {
+                      const isInterne = String(mod.moduleType).toLowerCase() === 'interne';
+                      setEditRole(
+                        isInterne ? 'module_manager_internal' : 'module_manager_external'
+                      );
+                    }
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="">— Aucun —</option>
+                  {managerModulesForEditRole.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Input
+              label="Nouveau mot de passe (optionnel)"
+              type="password"
+              value={editPassword}
+              onChange={(e) => setEditPassword(e.target.value)}
+              placeholder="Laisser vide pour ne pas changer"
+              minLength={6}
+            />
+            <div className="flex gap-2">
+              <Button type="submit" variant="accent" disabled={savingEdit}>
+                {savingEdit ? 'Enregistrement...' : 'Enregistrer'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setEditModal(false)}>
+                Annuler
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Modal de confirmation de suppression d'un utilisateur */}
+      <Modal
+        open={userToDelete !== null}
+        onClose={() => !deletingUser && setUserToDelete(null)}
+        title="Supprimer l'utilisateur"
+      >
+        {userToDelete && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Êtes-vous sûr de vouloir supprimer l'utilisateur{' '}
+              <strong>{userToDelete.fullName}</strong> ({userToDelete.email}) ? Cette action est
+              irréversible. Les rôles et relations associés seront gérés par le système.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setUserToDelete(null)}
+                disabled={deletingUser}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="accent"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={confirmDeleteUser}
+                disabled={deletingUser}
+              >
+                {deletingUser ? 'Suppression…' : 'Supprimer'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -5,6 +5,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateChapitreDto } from './dto/create-chapitre.dto';
+import type { UpdateChapitreDto } from './dto/update-chapitre.dto';
 import type { CreateChapterItemDto } from './dto/create-chapter-item.dto';
 
 @Injectable()
@@ -171,6 +172,44 @@ export class ChapitresService {
     const lectureSeulement = role === 'student';
     await this.verifierDroitsModule(chapitre.moduleId, userId, role, lectureSeulement);
     return chapitre;
+  }
+
+  async mettreAJourChapitre(
+    chapitreId: string,
+    dto: UpdateChapitreDto,
+    userId: string,
+    role: string
+  ): Promise<{ id: string; title: string }> {
+    const chapitre = await this.prisma.chapter.findUnique({
+      where: { id: chapitreId },
+      include: { module: true },
+    });
+    if (!chapitre) {
+      throw new NotFoundException('Chapitre introuvable');
+    }
+    await this.verifierDroitsModule(chapitre.moduleId, userId, role);
+    const updated = await this.prisma.chapter.update({
+      where: { id: chapitreId },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.order !== undefined && { order: dto.order }),
+      },
+      select: { id: true, title: true },
+    });
+    return updated;
+  }
+
+  async supprimerChapitre(chapitreId: string, userId: string, role: string): Promise<void> {
+    const chapitre = await this.prisma.chapter.findUnique({
+      where: { id: chapitreId },
+      include: { module: true },
+    });
+    if (!chapitre) {
+      throw new NotFoundException('Chapitre introuvable');
+    }
+    await this.verifierDroitsModule(chapitre.moduleId, userId, role);
+    await this.prisma.chapter.delete({ where: { id: chapitreId } });
   }
 
   private async verifierDroitsModule(

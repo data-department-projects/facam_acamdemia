@@ -324,7 +324,7 @@ export const MOCK_USERS: User[] = [
     id: 'u2',
     email: 'responsable@facam.com',
     fullName: 'Responsable Demo',
-    role: 'module_manager',
+    role: 'module_manager_internal',
     createdAt: '2025-01-10T09:00:00Z',
   },
   {

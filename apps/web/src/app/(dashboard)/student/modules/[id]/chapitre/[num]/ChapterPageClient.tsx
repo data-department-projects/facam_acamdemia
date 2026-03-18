@@ -5,9 +5,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -40,6 +41,8 @@ interface ApiModule {
   id: string;
   title: string;
   progress?: number;
+  lastViewedChapterId?: string | null;
+  lastViewedItemId?: string | null;
   chapters?: ApiChapter[];
 }
 
@@ -59,6 +62,9 @@ export function ChapterPageClient({
 }) {
   const [module_, setModule_] = useState<ApiModule | null>(null);
   const [loading, setLoading] = useState(true);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [completedItemIds, setCompletedItemIds] = useState<Set<string>>(new Set());
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +84,151 @@ export function ChapterPageClient({
     };
   }, [moduleId]);
 
+  // Assure l'existence de l'inscription (idempotent) et récupère l'enrollmentId
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api
+        .post<{ id: string; moduleId: string }>('/enrollments/start', { moduleId })
+        .then((res) => res.id)
+        .catch(() => null),
+      api
+        .get<{ id: string; moduleId: string }[]>('/enrollments')
+        .then((list) => {
+          const arr = Array.isArray(list) ? list : [];
+          const en = arr.find((e) => e.moduleId === moduleId);
+          return en?.id ?? null;
+        })
+        .catch(() => null),
+    ]).then(([fromStart, fromList]) => {
+      if (cancelled) return;
+      setEnrollmentId(fromStart ?? fromList);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduleId]);
+
+  // Charge la liste des items complétés pour afficher la progression réelle dans la sidebar
+  useEffect(() => {
+    if (!enrollmentId) return;
+    let cancelled = false;
+    api
+      .get<{ chapterItemIds: string[] }>(`/enrollments/${enrollmentId}/progress-items`)
+      .then((res) => {
+        if (cancelled) return;
+        const ids = Array.isArray(res.chapterItemIds) ? res.chapterItemIds : [];
+        setCompletedItemIds(new Set(ids));
+      })
+      .catch(() => {
+        if (!cancelled) setCompletedItemIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enrollmentId]);
+
+  const chapters = useMemo(
+    () => (module_?.chapters ?? []).slice().sort((a, b) => a.order - b.order),
+    [module_]
+  );
+  const chapter = chapters.find((c) => c.order === chapterOrder);
+
+  const videoItem = chapter?.items?.find((i) => i.type === 'video') ?? null;
+  const embedUrl = getYoutubeEmbedUrl(videoItem?.videoUrl);
+  const documentUrls = (chapter?.items ?? [])
+    .filter((i) => i.type === 'document' && i.documentUrl)
+    .map((i) => ({ label: i.documentLabel ?? 'Document', url: i.documentUrl! }));
+  const quizId =
+    (chapter?.quizzes?.[0] as { id: string } | undefined)?.id ??
+    (chapter?.items?.find((i) => i.type === 'quiz') as ChapterItem | undefined)?.quizId ??
+    null;
+  const quizItemId =
+    chapter?.items?.find((i) => i.type === 'quiz' && (i.quizId ?? null) === quizId)?.id ?? null;
+
+  const completedChapterOrders = useMemo(() => {
+    // Un chapitre est "complété" si tous ses items requis (vidéo + quiz) sont complétés.
+    // Les documents sont considérés comme optionnels dans ce calcul.
+    const result = new Set<number>();
+    for (const ch of chapters) {
+      const required = (ch.items ?? []).filter((it) => it.type === 'video' || it.type === 'quiz');
+      if (required.length === 0) continue;
+      const ok = required.every((it) => completedItemIds.has(it.id));
+      if (ok) result.add(ch.order);
+    }
+    return result;
+  }, [chapters, completedItemIds]);
+  const sidebarChapters = useMemo(
+    () =>
+      chapters.map((ch) => ({
+        id: ch.id,
+        title: ch.title,
+        order: ch.order,
+        durationMinutes: 15,
+        items: [
+          ...(ch.items?.some((i) => i.type === 'video')
+            ? [
+                {
+                  id: (ch.items ?? []).find((i) => i.type === 'video')?.id ?? `${ch.id}-video`,
+                  title: 'Lecture',
+                  order: 0,
+                  type: 'video' as const,
+                },
+              ]
+            : []),
+          ...(ch.items?.some((i) => i.documentUrl)
+            ? [{ id: `${ch.id}-doc`, title: 'Ressources', order: 0, type: 'document' as const }]
+            : []),
+          ...((ch.quizzes?.length ?? 0) > 0
+            ? [
+                {
+                  id:
+                    (ch.items ?? []).find((i) => i.type === 'quiz')?.id ??
+                    (ch.quizzes as { id: string }[])[0]?.id ??
+                    ch.id,
+                  title: 'Quiz du chapitre',
+                  order: 1,
+                  type: 'quiz' as const,
+                  isQuiz: true,
+                  href: (() => {
+                    const quizId =
+                      (ch.quizzes as { id: string }[] | undefined)?.[0]?.id ??
+                      (ch.items ?? []).find((i) => i.type === 'quiz')?.quizId ??
+                      null;
+                    const quizItemId = (ch.items ?? []).find((i) => i.type === 'quiz')?.id ?? null;
+                    if (!quizId || !quizItemId) return undefined;
+                    const next =
+                      ch.order < chapters.length
+                        ? `/student/modules/${moduleId}/chapitre/${ch.order + 1}`
+                        : `/student/modules/${moduleId}/test-final`;
+                    return `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(next)}&chapterId=${encodeURIComponent(ch.id)}&quizItemId=${encodeURIComponent(quizItemId)}`;
+                  })(),
+                },
+              ]
+            : []),
+        ],
+      })),
+    [chapters, moduleId]
+  );
+
+  const progressPercent = module_?.progress ?? 0;
+
+  const nextHref =
+    chapterOrder < chapters.length
+      ? `/student/modules/${moduleId}/chapitre/${chapterOrder + 1}`
+      : `/student/modules/${moduleId}/test-final`;
+
+  // Si l'utilisateur s'était arrêté sur le quiz (échec), on le renvoie directement au quiz
+  useEffect(() => {
+    if (!module_ || !chapter) return;
+    if (!module_.lastViewedItemId) return;
+    if (!quizId || !quizItemId) return;
+    if (module_.lastViewedItemId !== quizItemId) return;
+    router.replace(
+      `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapter.id)}&quizItemId=${encodeURIComponent(quizItemId)}`
+    );
+  }, [module_, chapter, quizId, quizItemId, moduleId, nextHref, router]);
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-6">
@@ -85,9 +236,6 @@ export function ChapterPageClient({
       </div>
     );
   }
-
-  const chapters = (module_?.chapters ?? []).sort((a, b) => a.order - b.order);
-  const chapter = chapters.find((c) => c.order === chapterOrder);
 
   if (!chapter || !module_) {
     return (
@@ -99,47 +247,6 @@ export function ChapterPageClient({
       </div>
     );
   }
-
-  const videoItem = chapter.items?.find((i) => i.type === 'video');
-  const embedUrl = getYoutubeEmbedUrl(videoItem?.videoUrl);
-  const documentUrls = (chapter.items ?? [])
-    .filter((i) => i.type === 'document' && i.documentUrl)
-    .map((i) => ({ label: i.documentLabel ?? 'Document', url: i.documentUrl! }));
-  const quizId =
-    (chapter.quizzes?.[0] as { id: string } | undefined)?.id ??
-    (chapter.items?.find((i) => i.type === 'quiz') as ChapterItem | undefined)?.quizId ??
-    null;
-
-  const completedChapterOrders = new Set(
-    (module_.progress === 100 ? chapters.map((c) => c.order) : []).concat(
-      chapters.filter((c) => c.order < chapterOrder).map((c) => c.order)
-    )
-  );
-  const sidebarChapters = chapters.map((ch) => ({
-    id: ch.id,
-    title: ch.title,
-    order: ch.order,
-    durationMinutes: 15,
-    items: [
-      ...(ch.items?.some((i) => i.documentUrl)
-        ? [{ id: `${ch.id}-doc`, title: 'Ressources', order: 0, type: 'document' as const }]
-        : []),
-      ...((ch.quizzes?.length ?? 0) > 0
-        ? [
-            {
-              id: (ch.quizzes as { id: string }[])[0]?.id ?? ch.id,
-              title: 'Quiz',
-              order: 1,
-              type: 'quiz' as const,
-              isQuiz: true,
-            },
-          ]
-        : []),
-    ],
-  }));
-
-  const progressPercent =
-    chapters.length > 0 ? Math.round((chapterOrder / chapters.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -162,7 +269,11 @@ export function ChapterPageClient({
               description={undefined}
               moduleId={moduleId}
               chapterId={chapter.id}
+              enrollmentId={enrollmentId}
+              videoItemId={videoItem?.id ?? null}
+              quizItemId={quizItemId}
               quizId={quizId}
+              nextHref={nextHref}
             />
 
             <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -213,13 +324,7 @@ export function ChapterPageClient({
               >
                 ← Précédent
               </Link>
-              <Link
-                href={
-                  chapterOrder < chapters.length
-                    ? `/student/modules/${moduleId}/chapitre/${chapterOrder + 1}`
-                    : `/student/modules/${moduleId}/test-final`
-                }
-              >
+              <Link href={nextHref}>
                 <Button variant="accent" size="lg">
                   {chapterOrder < chapters.length ? 'Chapitre suivant →' : 'Passer au quiz final →'}
                 </Button>
@@ -238,6 +343,7 @@ export function ChapterPageClient({
                 chapters={sidebarChapters}
                 currentChapterOrder={chapterOrder}
                 completedChapterOrders={completedChapterOrders}
+                completedItemIds={completedItemIds}
               />
             </div>
           </aside>
