@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Plus, GripVertical, Video, FileQuestion, BookOpen, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -261,7 +262,15 @@ export default function ModuleManagerModulesPage() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
                       {mod.imageUrl && (
-                        <img src={mod.imageUrl} alt="" className="h-14 w-24 rounded object-cover" />
+                        <Image
+                          src={mod.imageUrl}
+                          alt={`Couverture du module ${mod.title}`}
+                          width={96}
+                          height={56}
+                          className="h-14 w-24 rounded object-cover"
+                          sizes="96px"
+                          unoptimized
+                        />
                       )}
                       <CardTitle className="text-lg">{mod.title}</CardTitle>
                     </div>

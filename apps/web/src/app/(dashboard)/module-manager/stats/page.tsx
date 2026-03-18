@@ -89,7 +89,7 @@ export default function ModuleManagerStatsPage() {
   };
 
   const exportExcel = () => {
-    const headers = ['Nom', 'Progression (%)', 'Score quiz final', 'Date passage quiz'];
+    const headers = ['Nom', 'Progression (%)', 'Score quiz final (%)', 'Date passage quiz'];
     const csvRows = [
       headers.join(';'),
       ...rows.map((r) =>
@@ -197,7 +197,7 @@ export default function ModuleManagerStatsPage() {
                   <tr className="border-b border-gray-200 text-left text-gray-600">
                     <th className="pb-2 pr-4 font-semibold">Nom étudiant</th>
                     <th className="pb-2 pr-4 font-semibold">Progression (%)</th>
-                    <th className="pb-2 pr-4 font-semibold">Score au quiz final</th>
+                    <th className="pb-2 pr-4 font-semibold">Score au quiz final (%)</th>
                     <th className="pb-2 pr-4 font-semibold">Date passage quiz</th>
                     <th className="w-12 pb-2 font-semibold"></th>
                   </tr>
@@ -208,7 +208,7 @@ export default function ModuleManagerStatsPage() {
                       <td className="py-2 pr-4 font-medium text-facam-dark">{row.fullName}</td>
                       <td className="py-2 pr-4">{row.progressPercent} %</td>
                       <td className="py-2 pr-4">
-                        {row.finalQuizScore != null ? `${row.finalQuizScore}/20` : '—'}
+                        {row.finalQuizScore != null ? `${row.finalQuizScore} %` : '—'}
                       </td>
                       <td className="py-2 pr-4">{formatDate(row.finalQuizPassedAt)}</td>
                       <td className="py-2">
@@ -245,7 +245,7 @@ export default function ModuleManagerStatsPage() {
             <p className="font-medium text-facam-dark">{detail.fullName}</p>
             <p className="text-sm text-gray-600">
               Progression : {detail.progressPercent} % — Quiz final :{' '}
-              {detail.finalQuizScore != null ? `${detail.finalQuizScore}/20` : '—'} (
+              {detail.finalQuizScore != null ? `${detail.finalQuizScore} %` : '—'} (
               {formatDate(detail.finalQuizPassedAt)})
             </p>
             <div>

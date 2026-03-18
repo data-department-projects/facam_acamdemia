@@ -8,8 +8,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -22,7 +20,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { Users, TrendingUp, Target, Activity } from 'lucide-react';
+import { Users, TrendingUp, Target, Activity, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { api } from '@/lib/api-client';
 
@@ -53,6 +51,23 @@ interface DashboardStats {
   }[];
 }
 
+interface ModuleItem {
+  id: string;
+  title: string;
+}
+
+interface Paginated<T> {
+  data: T[];
+}
+
+interface ReviewItem {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  author: string;
+  createdAt: string;
+}
+
 const MONTH_LABELS: Record<number, string> = {
   1: 'Jan',
   2: 'Fév',
@@ -75,6 +90,10 @@ export default function ModuleManagerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +116,53 @@ export default function ModuleManagerDashboardPage() {
       cancelled = true;
     };
   }, [year]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<Paginated<ModuleItem>>('/formations?limit=100')
+      .then((res) => {
+        const list = Array.isArray(res.data)
+          ? res.data
+          : ((res as { data?: ModuleItem[] }).data ?? []);
+        if (!cancelled) {
+          setModules(list);
+          setSelectedModuleId((prev) => prev ?? list[0]?.id ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setModules([]);
+          setSelectedModuleId(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedModuleId) {
+      setReviews([]);
+      return;
+    }
+    let cancelled = false;
+    setReviewsLoading(true);
+    api
+      .get<ReviewItem[]>(`/reviews/module/${encodeURIComponent(selectedModuleId)}`)
+      .then((data) => {
+        if (!cancelled) setReviews(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setReviews([]);
+      })
+      .finally(() => {
+        if (!cancelled) setReviewsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedModuleId]);
 
   if (loading) {
     return (
@@ -233,33 +299,78 @@ export default function ModuleManagerDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Barres horizontales : étudiants par chapitre */}
+      {/* Commentaires et avis (responsable module) */}
       <Card className="border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Étudiants par chapitre</CardTitle>
-          <p className="text-sm font-normal text-gray-500">
-            Nombre d&apos;étudiants actuellement à ce niveau (dernier chapitre consulté)
-          </p>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">Commentaires & avis sur le module</CardTitle>
+            <p className="text-sm font-normal text-gray-500">
+              Liste des avis publiés par les étudiants (notation + commentaire)
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Module</label>
+            <select
+              value={selectedModuleId ?? ''}
+              onChange={(e) => setSelectedModuleId(e.target.value || null)}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+              disabled={modules.length === 0}
+            >
+              {modules.length === 0 ? (
+                <option value="">Aucun module</option>
+              ) : (
+                modules.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
-          {stats?.byChapter && stats.byChapter.length > 0 ? (
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={stats.byChapter.map((c) => ({ name: c.chapterTitle, count: c.count }))}
-                  layout="vertical"
-                  margin={{ left: 20, right: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#001b61" name="Étudiants" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          {reviewsLoading ? (
+            <p className="text-sm text-gray-500">Chargement des avis…</p>
+          ) : reviews.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucun avis pour ce module pour le moment.</p>
           ) : (
-            <p className="text-sm text-gray-500">Aucun chapitre ou aucune donnée.</p>
+            <ul className="space-y-4">
+              {reviews.map((r) => (
+                <li key={r.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-facam-dark">{r.author}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(r.createdAt).toLocaleDateString('fr-FR', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div
+                      className="flex items-center gap-1 text-facam-yellow"
+                      aria-label={`${r.rating} sur 5`}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <Star
+                          key={i}
+                          className={`size-4 ${i < r.rating ? 'fill-current' : 'text-gray-200'}`}
+                          aria-hidden
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  {r.comment ? (
+                    <p className="mt-3 text-sm text-gray-700 leading-relaxed">{r.comment}</p>
+                  ) : (
+                    <p className="mt-3 text-sm text-gray-500 italic">
+                      Aucun commentaire (note uniquement).
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>

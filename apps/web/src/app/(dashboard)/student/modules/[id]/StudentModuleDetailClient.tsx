@@ -128,6 +128,12 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
       }));
   }, [module_]);
 
+  const resumeChapterOrder = useMemo(() => {
+    if (!module_?.lastViewedChapterId) return 1;
+    const ch = chapters.find((c) => c.id === module_.lastViewedChapterId);
+    return ch?.order ?? 1;
+  }, [chapters, module_?.lastViewedChapterId]);
+
   const totalSessions = useMemo(
     () => chapters.reduce((acc, ch) => acc + (ch.items?.length ?? 0), 0),
     [chapters]
@@ -175,7 +181,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
   /** L'utilisateur est inscrit au module si l'API renvoie une progression (même 0). */
   const isEnrolled = module_.progress !== undefined && module_.progress !== null;
   const rating = 4.8;
-  const reviewCount = 0;
+  const reviewCount: number = 0;
   const instructor = module_.authorName ?? 'FACAM ACADEMIA';
   const levelLabel =
     module_.level === 'debutant'
@@ -445,7 +451,10 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
 
                 <div className="pt-4 space-y-2">
                   {isEnrolled ? (
-                    <Link href={`/student/modules/${moduleId}/chapitre/1`} className="block">
+                    <Link
+                      href={`/student/modules/${moduleId}/chapitre/${resumeChapterOrder}`}
+                      className="block"
+                    >
                       <Button
                         variant="accent"
                         size="lg"

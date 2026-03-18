@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileQuestion, Plus } from 'lucide-react';
+import { ArrowLeft, FileQuestion, Plus, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -61,6 +61,41 @@ export function ModuleQuizClient({
 
   const [savingFinal, setSavingFinal] = useState(false);
   const [finalQuizError, setFinalQuizError] = useState<string | null>(null);
+  const [finalSummary, setFinalSummary] = useState<{
+    questionCount: number;
+    minScoreToPass: number;
+    questionsPreview: string[];
+  } | null>(null);
+
+  const loadFinalSummary = useCallback(async () => {
+    try {
+      const data = await api.get<{
+        id: string;
+        minScoreToPass: number;
+        questions: {
+          id: string;
+          questionText: string;
+          options: string[];
+          correctIndex: number;
+          order: number;
+        }[];
+      } | null>(`/quiz/final?moduleId=${encodeURIComponent(moduleId)}`);
+
+      const qs = data?.questions ?? [];
+      setFinalSummary({
+        questionCount: qs.length,
+        minScoreToPass: data?.minScoreToPass ?? 80,
+        questionsPreview: qs
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .slice(0, 4)
+          .map((q) => q.questionText)
+          .filter(Boolean),
+      });
+    } catch {
+      setFinalSummary({ questionCount: 0, minScoreToPass: 80, questionsPreview: [] });
+    }
+  }, [moduleId]);
 
   const openQuizFinal = useCallback(async () => {
     setQuizModal('final');
@@ -113,12 +148,37 @@ export function ModuleQuizClient({
       };
       await api.put('/quiz/final', payload);
       setQuizModal(null);
+      await loadFinalSummary();
     } catch (e) {
       setFinalQuizError(e instanceof Error ? e.message : 'Erreur enregistrement');
     } finally {
       setSavingFinal(false);
     }
   };
+
+  useEffect(() => {
+    loadFinalSummary();
+  }, [loadFinalSummary]);
+
+  const finalConfigured = (finalSummary?.questionCount ?? 0) > 0;
+  const finalChip = useMemo(() => {
+    if (!finalSummary) return null;
+    if (finalConfigured) {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+          <CheckCircle2 className="size-4" aria-hidden />
+          Configuré · {finalSummary.questionCount} question(s) · seuil {finalSummary.minScoreToPass}
+          %
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+        <AlertTriangle className="size-4" aria-hidden />
+        Non configuré · Ajoutez des questions
+      </span>
+    );
+  }, [finalConfigured, finalSummary]);
 
   if (loading) {
     return (
@@ -177,9 +237,27 @@ export function ModuleQuizClient({
             que l&apos;étudiant puisse obtenir son certificat. Créez ou modifiez les questions
             ci-dessous.
           </p>
+
+          {finalChip && <div className="mb-4">{finalChip}</div>}
+
+          {finalConfigured && finalSummary?.questionsPreview?.length ? (
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+              <p className="text-sm font-semibold text-facam-dark">Aperçu des questions</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+                {finalSummary.questionsPreview.map((t) => (
+                  <li key={t}>{t.length > 80 ? `${t.slice(0, 80)}…` : t}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <Button variant="accent" onClick={openQuizFinal}>
             <Plus className="mr-2 size-4" />
-            Créer ou modifier le quiz final
+            {finalConfigured
+              ? `Modifier le quiz final (${finalSummary?.questionCount ?? 0} question${
+                  (finalSummary?.questionCount ?? 0) > 1 ? 's' : ''
+                })`
+              : 'Créer le quiz final'}
           </Button>
         </CardContent>
       </Card>

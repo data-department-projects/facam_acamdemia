@@ -12,6 +12,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
@@ -20,9 +21,11 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  GraduationCap,
+  Heart,
+  LockKeyhole,
+  PhoneCall,
+  UsersRound,
   Quote,
-  ShieldCheck,
   Sparkles,
   Star,
   Users,
@@ -30,19 +33,11 @@ import {
 import { APP_NAME } from '@facam-academia/shared';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
-import { Hero3D } from '@/components/ui/Hero3D';
 import { Reveal } from '@/components/marketing/home/Reveal';
 import { ScrollProgress } from '@/components/marketing/home/ScrollProgress';
 
-/** Image hero en fond (fichier public "image hero.jpg" — espace encodé pour l’URL) */
-const HERO_BG_IMAGE = '/image%20hero.jpg';
-
-const TRUST_CHIPS = [
-  { label: 'Certifications', icon: Award },
-  { label: 'Formateurs experts', icon: GraduationCap },
-  { label: 'Parcours guidés', icon: Sparkles },
-  { label: 'Accès flexible', icon: Clock },
-];
+/** Image hero en fond (fichier public "hero.jpg") */
+const HERO_BG_IMAGE = '/hero.jpg';
 
 const QUICK_VALUE = [
   {
@@ -73,66 +68,69 @@ const DOMAINS = [
   'Data & performance',
 ];
 
-const STATS = [
-  { value: '2 500+', label: 'Apprenants', icon: Users },
-  { value: '50+', label: 'Formations', icon: BookOpen },
-  { value: '98%', label: 'Taux de réussite', icon: Award },
-  { value: '30 j', label: 'Accès flexible', icon: Clock },
-];
+const KEY_METRICS = [
+  { value: 2500, suffix: '+', label: 'Apprenants', icon: Users },
+  { value: 50, suffix: '+', label: 'Formations', icon: BookOpen },
+  { value: 98, suffix: '%', label: 'Taux de réussite', icon: Award },
+  { value: 30, suffix: ' j', label: 'Accès flexible', icon: Clock },
+] as const;
 
 const LEARNING_OUTCOMES = [
   {
-    title: 'Maîtriser les fondamentaux industriels',
-    description:
-      'Comprendre les bases de la maintenance, de la production et de la qualité pour être opérationnel sur le terrain.',
+    title: 'Apprendre en pratique',
+    description: 'Des modules orientés terrain pour progresser vite vers les métiers industriels.',
+    icon: UsersRound,
+    side: 'left',
   },
   {
-    title: 'Obtenir une première expérience concrète',
-    description:
-      'Travailler sur des cas pratiques proches de la réalité des usines africaines et des projets industriels.',
+    title: 'Confidentialité',
+    description: 'Un espace d’apprentissage sécurisé, avec des accès et une progression maîtrisés.',
+    icon: LockKeyhole,
+    side: 'left',
   },
   {
-    title: 'Préparer votre employabilité',
+    title: 'Communauté',
     description:
-      'Découvrir les compétences recherchées par les recruteurs et structurer un parcours crédible sur votre CV.',
+      'Brisez la glace et avancez avec d’autres apprenants motivés, comme dans un vrai campus.',
+    icon: Heart,
+    side: 'left',
   },
   {
-    title: 'Monter en compétences en continu',
-    description:
-      'Mettre à jour vos connaissances avec des modules courts, des quiz et des ressources téléchargeables.',
+    title: 'Ouverture & réseau',
+    description: 'Élargissez votre cercle et créez des liens forts avec des profils variés.',
+    icon: Users,
+    side: 'right',
   },
-];
+  {
+    title: 'Accompagnement',
+    description: 'Une communication claire et un suivi pour garder le cap et valider vos acquis.',
+    icon: PhoneCall,
+    side: 'right',
+  },
+] as const;
 
 const AWARDS = [
   {
-    title: 'Label qualité formation',
-    description:
-      'Reconnaissance interne pour la qualité pédagogique et la satisfaction des apprenants.',
+    image: '/prices/uemoa-logo.png',
+    caption: 'Agrément UEMOA',
   },
   {
-    title: 'Partenariats industriels',
-    description:
-      'Collaborations avec des industriels pour co-construire les contenus et cas pratiques.',
+    image: '/prices/ECOWAS.png',
+    caption: 'Reconnaissance CEDEAO',
   },
   {
-    title: 'Distinctions académiques',
-    description: 'Programmes recommandés par des enseignants et responsables pédagogiques.',
+    image: '/prices/number-one-image.png',
+    caption: 'Pionnière de notre secteur industriel.',
   },
-];
+] as const;
 
 const BRANDS = [
-  { name: 'FACAM Industrie', tagline: 'Partenaire formation', logo: '/brands/facam-industrie.png' },
-  {
-    name: 'Stairway Skills',
-    tagline: 'Soft skills & leadership',
-    logo: '/brands/stairway-skills.png',
-  },
-  { name: 'QHSE Lab', tagline: 'Qualité & sécurité', logo: '/brands/qhse-lab.png' },
-  {
-    name: 'ProdFlow Academy',
-    tagline: 'Production & logistique',
-    logo: '/brands/prodflow-academy.png',
-  },
+  { name: 'Blambox', tagline: 'Manufacturing Excellence', logo: '/brands/blambox-logo.png' },
+  { name: 'Kleena', tagline: 'Tissue Products', logo: '/brands/kleena-logo.png' },
+  { name: 'Angel Soft', tagline: 'Softness & Comfort', logo: '/brands/angel-soft-logo.png' },
+  { name: 'Baby Well', tagline: 'Baby Care', logo: '/brands/baby-well-logo.png' },
+  { name: 'Lala', tagline: 'Feminine Hygiene', logo: '/brands/lala-logo.png' },
+  { name: 'Comfort+', tagline: 'Premium Quality', logo: '/brands/comfort-plus-logo.png' },
 ];
 
 const FAQ_ITEMS = [
@@ -165,19 +163,47 @@ const FAQ_ITEMS = [
 
 const ENTERPRISE_BENEFITS = [
   {
-    title: 'Former vos équipes aux standards industriels',
-    description:
-      'Construisez des parcours ciblés par métier (maintenance, production, QHSE) pour accélérer la montée en compétences.',
+    title: 'Rapport qualité prix',
+    description: 'Des produits d’hygiène accessibles, durables et au coût maîtrisé.',
   },
   {
-    title: 'Suivre la progression en temps réel',
-    description:
-      'Tableaux de bord, taux de complétion et certificats pour piloter vos plans de formation.',
+    title: 'Innovation',
+    description: 'Processus modernes, équipements performants et amélioration continue.',
   },
   {
-    title: 'Adapter les contenus à votre contexte',
+    title: 'Excellence',
+    description: 'Exigence à chaque étape : production, contrôle qualité et conformité.',
+  },
+  {
+    title: 'Leadership',
+    description: 'Capital humain, impact positif durable et écosystème responsable.',
+  },
+] as const;
+
+const LEARNING_STEPS = [
+  {
+    title: 'Choisissez votre parcours',
     description:
-      'Possibilité de co-construire des cas issus de vos lignes de production et de vos référentiels internes.',
+      'Sélectionnez une formation (maintenance, QHSE, production…) selon votre profil et vos objectifs.',
+    icon: BookOpen,
+  },
+  {
+    title: 'Apprenez par la pratique',
+    description:
+      'Vidéos courtes, cas terrain, ressources téléchargeables — le tout structuré chapitre par chapitre.',
+    icon: Sparkles,
+  },
+  {
+    title: 'Validez avec des quiz',
+    description:
+      'Des évaluations régulières pour mesurer vos progrès, renforcer vos acquis et rester motivé.',
+    icon: CheckCircle2,
+  },
+  {
+    title: 'Obtenez votre certificat',
+    description:
+      'Terminez le parcours, passez l’évaluation finale et valorisez votre montée en compétences.',
+    icon: Award,
   },
 ];
 
@@ -186,13 +212,13 @@ const FEATURED_PROGRAMS = [
   {
     title: 'Maintenance industrielle',
     description: 'Préventive, corrective, diagnostic et méthodes.',
-    image: '/maintenance.jpg',
+    image: '/F18.jpg',
     meta: { hours: 12, rating: 4.8, learners: '2,5k' },
   },
   {
     title: 'Production & Logistique',
     description: 'Lean, 5S, gestion des flux et pilotage des stocks.',
-    image: '/production.jpg',
+    image: '/F22.jpg',
     meta: { hours: 10, rating: 4.6, learners: '1,8k' },
   },
   {
@@ -229,27 +255,113 @@ const TESTIMONIALS = [
 
 const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 
-function RatingBadge() {
+function formatCompactNumber(n: number) {
+  return new Intl.NumberFormat('fr-FR').format(n);
+}
+
+function useCountUp(target: number, durationMs: number, enabled: boolean) {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setValue(target);
+      return;
+    }
+
+    const start = performance.now();
+    const from = 0;
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = Math.round(from + (target - from) * eased);
+      setValue(next);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [durationMs, enabled, target]);
+
+  return value;
+}
+
+function MetricCard({
+  metric,
+  index,
+}: Readonly<{
+  metric: (typeof KEY_METRICS)[number];
+  index: number;
+}>) {
+  const reduce = useReducedMotion();
+  const v = useCountUp(metric.value, 900 + index * 120, !reduce);
+  const Icon = metric.icon;
+
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-white">
-        <span className="font-bold">4.8</span>
-        <span
-          className="flex items-center gap-0.5 text-facam-yellow"
-          aria-label="Note moyenne 4.8 sur 5"
-        >
-          {STAR_VALUES.map((v) => (
-            <Star key={v} className="size-4 fill-current" aria-hidden />
-          ))}
-        </span>
-        <span className="text-white/70 text-sm">Évaluation apprenants</span>
+    <motion.div
+      whileHover={reduce ? undefined : { y: -6 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 text-center"
+    >
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-facam-yellow/10 blur-3xl" />
+      <div className="mx-auto inline-flex size-12 items-center justify-center rounded-2xl bg-white/10 text-facam-yellow">
+        <Icon className="size-6" aria-hidden />
       </div>
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-white">
-        <ShieldCheck className="size-4 text-facam-yellow" aria-hidden />
-        <span className="font-bold">A+</span>
-        <span className="text-white/70 text-sm">Qualité plateforme</span>
-      </div>
-    </div>
+      <p className="mt-4 text-3xl font-bold tracking-tight text-white">
+        {formatCompactNumber(v)}
+        <span className="text-white/90">{metric.suffix}</span>
+      </p>
+      <p className="mt-1 text-sm font-medium text-white/70">{metric.label}</p>
+      <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+      <p className="mt-3 text-xs font-semibold text-white/60">
+        Mesurez votre progression, pas juste le temps passé.
+      </p>
+    </motion.div>
+  );
+}
+
+function SafeImage({
+  src,
+  alt,
+  sizes,
+  className,
+  fill,
+  priority,
+}: Readonly<{
+  src: string;
+  alt: string;
+  sizes?: string;
+  className?: string;
+  fill?: boolean;
+  priority?: boolean;
+}>) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div
+        className={[
+          'flex h-full w-full items-center justify-center bg-gradient-to-br from-facam-blue-tint to-white',
+          className ?? '',
+        ].join(' ')}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill={fill}
+      priority={priority}
+      sizes={sizes}
+      className={className}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -308,111 +420,75 @@ function SectionShell({
 
 export function HomeLanding() {
   const reduce = useReducedMotion();
+  const featuredBrands = useMemo(() => BRANDS, []);
 
   return (
-    <div className="min-h-screen bg-white font-montserrat">
+    <div className="min-h-screen bg-white font-montserrat overflow-x-hidden">
       <ScrollProgress />
-      <Header user={null} />
+      <Header user={null} variant="glass" />
 
-      {/* HERO — image en fond derrière le bleu, sculptures et orbes conservés, rendu harmonieux */}
-      <section className="relative min-h-[88vh] overflow-hidden bg-facam-dark text-white">
-        {/* Couche 1 : image de fond (modules / visuel public) */}
-        <div className="absolute inset-0 z-0">
-          <Image src={HERO_BG_IMAGE} alt="" fill className="object-cover" priority sizes="100vw" />
+      {/* HERO — version “background image” style portfolio */}
+      <section className="relative overflow-hidden">
+        {/* Background image */}
+        <div className="absolute inset-0">
+          <Image src={HERO_BG_IMAGE} alt="" fill priority sizes="100vw" className="object-cover" />
+          {/* Overlay charte FACAM (bleu/dark) pour garantir la lisibilité */}
+          <div className="absolute inset-0 bg-facam-dark/65" aria-hidden />
           <div
-            className="absolute inset-0 bg-gradient-to-r from-facam-dark via-facam-dark/92 to-facam-dark/75"
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(0,13,50,0.82) 0%, rgba(0,27,97,0.60) 55%, rgba(0,27,97,0.25) 100%)',
+            }}
             aria-hidden
           />
         </div>
-        {/* Couche 2 : sculptures 3D et orbes (éléments visuels existants) */}
-        <div className="absolute inset-0 z-[1] opacity-70">
-          <Hero3D />
-        </div>
-        <div className="pointer-events-none absolute inset-0 z-[1]">
-          <div className="absolute -top-24 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-facam-yellow/15 blur-3xl" />
-          <div className="absolute -bottom-28 -left-24 h-[420px] w-[420px] rounded-full bg-facam-blue-mid/50 blur-3xl" />
-        </div>
-        {/* Contenu */}
-        <div className="container-custom relative z-10 flex min-h-[88vh] flex-col justify-center py-20">
-          <div className="mx-auto max-w-3xl text-center">
+
+        <div className="container-custom relative z-10 py-24 sm:py-28 lg:py-32">
+          <div className="max-w-3xl">
             <Reveal>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90">
-                <Sparkles className="size-4 text-facam-yellow" aria-hidden />
-                <span>Plateforme e-learning industrielle — édition 2026</span>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80">
+                <span className="h-1.5 w-1.5 rounded-full bg-facam-yellow" aria-hidden />
+                <span>FACAM ACADEMIA · Plateforme e-learning industrie</span>
               </div>
             </Reveal>
 
             <Reveal delay={0.08}>
-              <h1 className="mt-6 text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-                Formez-vous, validez, <span className="text-facam-yellow">certifiez-vous</span>.
+              <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
+                Apprenez les métiers de l&apos;industrie
                 <br />
-                Accélérez votre carrière avec {APP_NAME}.
+                <span className="text-facam-yellow">comme dans un vrai campus.</span>
               </h1>
             </Reveal>
 
             <Reveal delay={0.14}>
-              <p className="mt-6 text-base leading-relaxed text-white/85 sm:text-lg">
-                Des parcours structurés, conçus avec des professionnels, pour maîtriser les
-                compétences recherchées en industrie : maintenance, QHSE, production, automatisme et
-                plus.
+              <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/75 sm:text-base">
+                FACAM ACADEMIA est une plateforme e-learning dédiée aux jeunes diplômés pour
+                approfondir leurs compétences dans l’industrie des produits d’hygiène et
+                d’emballage. Apprenez en ligne, validez votre certificat, puis passez au terrain
+                avec un test sur place et une mise en pratique concrète.
               </p>
             </Reveal>
 
             <Reveal delay={0.2}>
-              <div className="mt-8 flex justify-center">
-                <RatingBadge />
-              </div>
-            </Reveal>
-
-            <Reveal delay={0.26}>
-              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <div className="mt-10 flex flex-wrap items-center gap-3">
                 <Link href="/login" className="inline-flex">
-                  <Button variant="accent" size="lg" className="px-8">
-                    Se connecter <ArrowRight />
+                  <Button
+                    size="lg"
+                    className="rounded-full bg-facam-yellow px-8 text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0"
+                  >
+                    Connexion <ArrowRight />
                   </Button>
                 </Link>
                 <Link href="#programmes" className="inline-flex">
                   <Button
                     variant="outline"
                     size="lg"
-                    className="border-white/30 text-white hover:border-white/50"
+                    className="rounded-full border-white/35 text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/60"
                   >
-                    Voir les programmes
+                    Découvrir
                   </Button>
                 </Link>
-              </div>
-            </Reveal>
-
-            <Reveal delay={0.32}>
-              <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-white/80">
-                {[
-                  'Accès 30 jours pour terminer votre formation',
-                  'Quiz et ressources téléchargeables',
-                  'Certificat en fin de parcours',
-                  'Support et accompagnement',
-                ].map((t) => (
-                  <div key={t} className="flex items-center gap-2">
-                    <CheckCircle2 className="size-5 shrink-0 text-facam-yellow" aria-hidden />
-                    <span>{t}</span>
-                  </div>
-                ))}
-              </div>
-            </Reveal>
-
-            <Reveal delay={0.38}>
-              <div className="mt-12 flex flex-wrap justify-center gap-4">
-                {TRUST_CHIPS.map((c) => {
-                  const Icon = c.icon;
-                  return (
-                    <div
-                      key={c.label}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center"
-                    >
-                      <Icon className="mx-auto size-5 text-facam-yellow" aria-hidden />
-                      <p className="mt-1.5 text-xs font-semibold text-white/90">{c.label}</p>
-                    </div>
-                  );
-                })}
               </div>
             </Reveal>
           </div>
@@ -431,27 +507,58 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
-      {/* Ce que vous apprendrez — remplace "Que recherchez-vous aujourd'hui ?" */}
-      <SectionShell className="bg-facam-dark py-20 text-white">
-        <Reveal>
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold">Ce que vous apprendrez</h2>
-            <p className="mt-3 text-white/75">
-              Des compétences concrètes pour passer de la théorie à la pratique, que vous soyez
-              étudiant ou déjà en poste dans l’industrie.
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {LEARNING_OUTCOMES.map((item, idx) => (
-            <Reveal key={item.title} delay={0.06 * idx}>
-              <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
-                <h3 className="text-lg font-semibold">{item.title}</h3>
-                <p className="mt-2 text-sm text-white/80 leading-relaxed">{item.description}</p>
+      {/* Ce que vous apprendrez — section claire inspirée de l’exemple */}
+      <SectionShell className="bg-white py-20">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-stretch">
+          {/* Colonne gauche : visuel apprenant dans un cadre rectangulaire */}
+          <Reveal className="lg:col-span-5">
+            <div className="relative h-full">
+              <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-3xl bg-facam-blue-tint/40 shadow-lg lg:min-h-[380px]">
+                <SafeImage
+                  src="/learn.jpg"
+                  alt="Apprenant en formation en ligne"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 420px"
+                  className="object-cover"
+                />
               </div>
-            </Reveal>
-          ))}
+            </div>
+          </Reveal>
+
+          {/* Colonne droite : titre + description + puces */}
+          <Reveal className="lg:col-span-7">
+            <div className="max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-wide text-facam-blue">
+                Ce que vous apprendrez
+              </p>
+              <h2 className="mt-2 text-3xl font-bold text-facam-dark">
+                Construisez des compétences prêtes pour l&apos;emploi.
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
+                Nos parcours vous aident à passer de la théorie à la pratique, avec des modules
+                courts, des cas concrets et des évaluations régulières pour valider vos acquis.
+              </p>
+
+              <div className="mt-6 space-y-4">
+                {LEARNING_OUTCOMES.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.title} className="flex items-start gap-3">
+                      <div className="mt-0.5 inline-flex size-9 items-center justify-center rounded-full bg-facam-blue-tint text-facam-blue">
+                        <Icon className="size-4" aria-hidden />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-facam-dark">{item.title}</p>
+                        <p className="text-xs text-gray-600 leading-relaxed sm:text-sm">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Reveal>
         </div>
       </SectionShell>
 
@@ -502,6 +609,63 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
+      {/* Parcours — donne du rythme et clarifie l'expérience */}
+      <SectionShell className="bg-white py-6">
+        <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-white to-facam-blue-tint p-8 md:p-10">
+          <Reveal>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold text-facam-blue">Un chemin clair</p>
+                <h2 className="mt-2 text-3xl font-bold text-facam-dark">
+                  Un parcours guidé, du premier cours au certificat
+                </h2>
+                <p className="mt-3 text-gray-600 leading-relaxed">
+                  On ne vous laisse pas seul : étapes, quiz, suivi de progression et validation
+                  finale pour apprendre efficacement.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link href="#programmes">
+                  <Button variant="accent">
+                    Découvrir les formations <ArrowRight />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {LEARNING_STEPS.map((step, idx) => {
+              const Icon = step.icon;
+              return (
+                <Reveal key={step.title} delay={0.05 * idx}>
+                  <motion.div
+                    whileHover={reduce ? undefined : { y: -6 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                    className="group h-full rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
+                        <Icon className="size-5" aria-hidden />
+                      </div>
+                      <span className="text-xs font-bold text-gray-400">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
+                    </div>
+                    <h3 className="mt-4 text-base font-bold text-facam-dark">{step.title}</h3>
+                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">{step.description}</p>
+                    <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                    <p className="mt-3 text-xs font-semibold text-facam-blue/90">
+                      Étape {idx + 1} · Progression suivie
+                    </p>
+                  </motion.div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </SectionShell>
+
       {/* Domaines — inspiré "adapté à tous les secteurs" */}
       <SectionShell className="bg-gray-50 py-16">
         <Reveal>
@@ -529,58 +693,246 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
-      {/* Stats — visuel premium */}
-      <SectionShell className="bg-white py-16">
-        <Reveal>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {STATS.map((s, idx) => {
-              const Icon = s.icon;
-              return (
+      {/* Formations — catégories + highlights (plus vivant) */}
+      <SectionShell className="bg-white py-20">
+        <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 md:p-12">
+          <div className="pointer-events-none absolute -right-28 -top-28 h-72 w-72 rounded-full bg-facam-yellow/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-facam-blue/10 blur-3xl" />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.05]"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.55) 1px, transparent 0)',
+              backgroundSize: '22px 22px',
+            }}
+            aria-hidden
+          />
+
+          <Reveal>
+            <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-sm font-semibold text-facam-blue">Formations</p>
+                <h2 className="mt-2 text-3xl font-bold text-facam-dark">
+                  Un parcours complet, du e-learning à la pratique terrain
+                </h2>
+                <p className="mt-3 text-gray-600 leading-relaxed">
+                  Sur FACAM ACADEMIA, vous apprenez d’abord en ligne (vidéos, quiz, ressources) et
+                  validez votre certificat. Ensuite, vous passez un test sur place, puis vous
+                  démarrez une période de mise en pratique concrète pour transformer vos acquis en
+                  compétences opérationnelles.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link href="#programmes">
+                  <Button variant="accent">
+                    Voir les parcours <ArrowRight />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <div className="relative z-10 mt-10">
+              <div className="relative rounded-3xl border border-gray-200 bg-white/70 px-6 py-8 shadow-sm md:px-10">
+                {/* Ligne de timeline (desktop: au centre / mobile: à gauche) */}
                 <div
-                  key={s.label}
-                  className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm"
-                >
-                  <div className="mx-auto inline-flex size-12 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
-                    <Icon className="size-6" aria-hidden />
-                  </div>
-                  <p className="mt-3 text-3xl font-bold text-facam-dark">{s.value}</p>
-                  <p className="mt-1 text-sm font-medium text-gray-500">{s.label}</p>
-                  {idx === 0 && (
-                    <p className="mt-2 text-xs text-gray-400">
-                      Données indicatives (évoluent avec la communauté)
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Reveal>
+                  className="pointer-events-none absolute inset-y-8 left-5 w-px bg-gradient-to-b from-transparent via-facam-blue/25 to-transparent md:left-1/2 md:-translate-x-1/2"
+                  aria-hidden
+                />
+
+                {[
+                  {
+                    k: '1',
+                    title: 'Parcours e-learning',
+                    desc: 'Modules structurés, vidéos, quiz et ressources pour progresser étape par étape.',
+                    icon: BookOpen,
+                  },
+                  {
+                    k: '2',
+                    title: 'Certificat FACAM',
+                    desc: 'Validation en fin de parcours pour attester des compétences acquises.',
+                    icon: Award,
+                  },
+                  {
+                    k: '3',
+                    title: 'Test sur place',
+                    desc: 'Évaluation en présentiel pour confirmer la maîtrise et préparer la suite.',
+                    icon: CheckCircle2,
+                  },
+                  {
+                    k: '4',
+                    title: 'Mise en pratique',
+                    desc: 'Période d’application concrète sur site pour devenir opérationnel.',
+                    icon: Sparkles,
+                  },
+                ].map((step, idx) => {
+                  const Icon = step.icon;
+                  const isRight = idx % 2 === 1;
+                  let initialX = 0;
+                  if (!reduce) initialX = isRight ? 24 : -24;
+                  const initial = reduce ? false : { opacity: 0, y: 14, x: initialX };
+
+                  return (
+                    <motion.div
+                      key={step.k}
+                      initial={initial}
+                      whileInView={reduce ? undefined : { opacity: 1, y: 0, x: 0 }}
+                      viewport={{ once: true, amount: 0.35 }}
+                      transition={{ duration: 0.55, ease: 'easeOut', delay: idx * 0.06 }}
+                      className="relative grid grid-cols-1 gap-4 py-6 md:grid-cols-2 md:gap-10"
+                    >
+                      {/* Colonne gauche (desktop) */}
+                      <div className={isRight ? 'md:col-start-1 md:col-end-2 md:text-right' : ''}>
+                        {!isRight && (
+                          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
+                            <div className="flex items-start gap-3 md:flex-row-reverse md:justify-end">
+                              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
+                                <Icon className="size-5" aria-hidden />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-facam-dark">
+                                  {step.k}) {step.title}
+                                </p>
+                                <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                                  {step.desc}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Colonne droite (desktop) */}
+                      <div className={isRight ? '' : 'md:col-start-2 md:col-end-3'}>
+                        {isRight && (
+                          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
+                            <div className="flex items-start gap-3">
+                              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
+                                <Icon className="size-5" aria-hidden />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-facam-dark">
+                                  {step.k}) {step.title}
+                                </p>
+                                <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                                  {step.desc}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Marker */}
+                      <div className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 md:left-1/2 md:-translate-x-1/2">
+                        <motion.div
+                          initial={reduce ? false : { scale: 0.95, opacity: 0.9 }}
+                          animate={reduce ? undefined : { scale: [1, 1.06, 1], opacity: [1, 1, 1] }}
+                          transition={{
+                            duration: 2.2,
+                            ease: 'easeInOut',
+                            repeat: reduce ? 0 : Infinity,
+                            delay: idx * 0.15,
+                          }}
+                          className="grid size-9 place-items-center rounded-xl bg-facam-blue text-white shadow-facam"
+                        >
+                          <span className="text-sm font-extrabold">{step.k}</span>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Cartes de catégories supprimées à la demande */}
+        </div>
       </SectionShell>
 
-      {/* Récompenses et reconnaissances */}
-      <SectionShell className="bg-gray-50 py-16">
-        <Reveal>
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold text-facam-dark">Nos récompenses</h2>
-            <p className="mt-3 text-gray-600">
-              Une plateforme reconnue pour la qualité de ses contenus, sa proximité avec le terrain
-              et son impact sur l’employabilité des jeunes.
-            </p>
-          </div>
-        </Reveal>
+      {/* Chiffres clés — version premium + animation */}
+      <section className="relative overflow-hidden bg-facam-dark py-20 text-white">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-28 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-facam-yellow/12 blur-3xl" />
+          <div className="absolute -bottom-36 -left-28 h-[520px] w-[520px] rounded-full bg-facam-blue-mid/45 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.55) 1px, transparent 0)',
+              backgroundSize: '24px 24px',
+            }}
+            aria-hidden
+          />
+        </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-          {AWARDS.map((award, idx) => (
-            <Reveal key={award.title} delay={0.06 * idx}>
-              <div className="h-full rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm">
-                <div className="inline-flex size-10 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
-                  <Award className="size-5" aria-hidden />
-                </div>
-                <h3 className="mt-4 text-base font-semibold text-facam-dark">{award.title}</h3>
-                <p className="mt-2 text-sm text-gray-600 leading-relaxed">{award.description}</p>
-              </div>
-            </Reveal>
-          ))}
+        <div className="container-custom relative z-10">
+          <Reveal>
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-sm font-semibold text-white/70">Impact & communauté</p>
+              <h2 className="mt-2 text-3xl font-bold">Nos chiffres clés</h2>
+              <p className="mt-3 text-white/75">
+                Une plateforme pensée pour apprendre vite, progresser, et valoriser des compétences
+                concrètes.
+              </p>
+            </div>
+          </Reveal>
+
+          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {KEY_METRICS.map((m, idx) => (
+              <Reveal key={m.label} delay={0.05 * idx}>
+                <MetricCard metric={m} index={idx} />
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={0.15}>
+            <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-white/55">
+              Données indicatives (évoluent avec la communauté). Les statistiques exactes sont
+              recalculées au fil des inscriptions et validations.
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Récompenses et reconnaissances — une ligne + deux badges */}
+      <SectionShell className="bg-gray-50 py-20">
+        <div className="rounded-3xl border border-gray-200 bg-white p-8 md:p-12">
+          <Reveal>
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-sm font-semibold text-facam-blue">Nos distinctions</p>
+              <h2 className="mt-2 text-3xl font-bold text-facam-dark">Une plateforme reconnue</h2>
+              <p className="mt-3 text-gray-600 leading-relaxed">
+                {APP_NAME} s’appuie sur des partenaires institutionnels et industriels pour garantir
+                la qualité des parcours et la pertinence des compétences visées.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.08}>
+            <div className="mx-auto mt-8 flex max-w-5xl flex-wrap items-center justify-center gap-x-12 gap-y-8 lg:flex-nowrap lg:justify-between">
+              {AWARDS.map((a) => (
+                <motion.div
+                  key={a.image}
+                  whileHover={reduce ? undefined : { y: -2 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                  className="flex w-56 flex-col items-center gap-2"
+                >
+                  <div className="relative h-14 w-44 md:h-16 md:w-48 lg:h-18 lg:w-52">
+                    <SafeImage
+                      src={a.image}
+                      alt={a.caption}
+                      fill
+                      sizes="(max-width: 768px) 176px, (max-width: 1024px) 192px, 208px"
+                      className="object-contain"
+                    />
+                  </div>
+                  <p className="text-center text-xs font-semibold text-gray-600">{a.caption}</p>
+                </motion.div>
+              ))}
+            </div>
+          </Reveal>
         </div>
       </SectionShell>
 
@@ -611,7 +963,7 @@ export function HomeLanding() {
                 className="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
               >
                 <div className="relative aspect-[16/11] w-full overflow-hidden">
-                  <Image
+                  <SafeImage
                     src={p.image}
                     alt={p.title}
                     fill
@@ -650,70 +1002,94 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
-      {/* Nos marques / partenaires formation */}
-      <SectionShell className="bg-white py-16">
+      {/* Nos marques / partenaires formation — style portfolio premium */}
+      <SectionShell className="bg-white py-20">
         <Reveal>
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold text-facam-blue">Notre écosystème</p>
-            <h2 className="mt-2 text-3xl font-bold text-facam-dark">Nos marques & partenaires</h2>
+            <p className="text-sm font-semibold text-facam-blue">Notre portefeuille</p>
+            <h2 className="mt-2 text-3xl font-bold text-facam-dark">
+              Nos marques & partenaires de confiance
+            </h2>
             <p className="mt-3 text-gray-600">
-              Des entités spécialisées pour couvrir l’ensemble des métiers de l’industrie et des
-              compétences transverses.
+              Un écosystème de marques engagées pour des produits fiables, performants et adaptés à
+              différents besoins du marché.
             </p>
           </div>
         </Reveal>
 
-        <div className="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-4">
-          {BRANDS.map((brand, idx) => (
+        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-6">
+          {featuredBrands.map((brand, idx) => (
             <Reveal key={brand.name} delay={0.05 * idx}>
-              <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-gray-200 bg-white px-4 py-6 shadow-sm">
-                <div className="relative mb-3 flex h-12 w-24 items-center justify-center rounded-xl bg-facam-blue-tint">
-                  {/* Placeholder logo — à remplacer par les visuels marketing */}
-                  <span className="text-xs font-semibold text-facam-blue text-center px-2">
-                    {brand.name}
-                  </span>
+              <motion.div
+                whileHover={
+                  reduce ? undefined : { y: -6, boxShadow: '0 18px 40px rgba(0,0,0,0.12)' }
+                }
+                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                className="group flex h-full flex-col items-center justify-between overflow-hidden rounded-3xl border border-gray-200 bg-white px-4 py-6 text-center shadow-sm"
+              >
+                <div className="relative mb-4 flex h-16 w-24 items-center justify-center rounded-2xl border border-gray-100 bg-white">
+                  <SafeImage
+                    src={brand.logo}
+                    alt={brand.name}
+                    fill
+                    sizes="96px"
+                    className="object-contain p-2"
+                  />
                 </div>
-                <p className="text-xs text-gray-500 text-center">{brand.tagline}</p>
-              </div>
+
+                <p className="text-sm font-bold text-facam-dark">{brand.name}</p>
+                <p className="mt-1 text-xs text-gray-500">{brand.tagline}</p>
+              </motion.div>
             </Reveal>
           ))}
         </div>
       </SectionShell>
 
-      {/* Témoignages — avis de nos apprenants */}
-      <section className="bg-facam-dark py-20 text-white">
-        <div className="container-custom">
-          <Reveal>
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-bold">Avis de nos apprenants</h2>
-              <p className="mt-3 text-white/75">
-                Des retours concrets sur l’impact des parcours, la clarté de la plateforme et
-                l’accompagnement proposé.
-              </p>
-            </div>
-          </Reveal>
+      {/* Témoignages — avis de nos apprenants (fond clair, cartes premium) */}
+      <SectionShell className="bg-gray-50 py-20">
+        <Reveal>
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold text-facam-dark">Avis de nos apprenants</h2>
+            <p className="mt-3 text-gray-600">
+              Des retours concrets sur l’impact des parcours, la clarté de la plateforme et
+              l’accompagnement proposé.
+            </p>
+          </div>
+        </Reveal>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-            {TESTIMONIALS.map((t, idx) => (
-              <Reveal key={t.author} delay={0.08 * idx}>
-                <div className="h-full rounded-3xl border border-white/10 bg-white/5 p-7">
-                  <Quote className="size-10 text-facam-yellow/60" aria-hidden />
-                  <p className="mt-4 text-white/90 leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="mt-6 flex items-center gap-3">
-                    <div className="relative size-11 overflow-hidden rounded-full bg-white/10">
-                      <Image src={t.avatar} alt="" fill className="object-cover" sizes="44px" />
+        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {TESTIMONIALS.map((t, idx) => (
+            <Reveal key={t.author} delay={0.08 * idx}>
+              <motion.div
+                whileHover={reduce ? undefined : { y: -8 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+                className="h-full rounded-3xl border border-gray-200 bg-white p-7 text-left shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="relative size-11 overflow-hidden rounded-full bg-gray-100">
+                      <SafeImage src={t.avatar} alt="" fill className="object-cover" sizes="44px" />
                     </div>
                     <div>
-                      <p className="font-bold">{t.author}</p>
-                      <p className="text-sm text-white/65">{t.role}</p>
+                      <p className="font-bold text-facam-dark">{t.author}</p>
+                      <p className="text-sm text-gray-500">{t.role}</p>
                     </div>
                   </div>
+                  <Quote className="size-8 text-facam-yellow/80" aria-hidden />
                 </div>
-              </Reveal>
-            ))}
-          </div>
+                <p className="mt-4 text-sm text-gray-700 leading-relaxed">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="mt-4 flex items-center gap-1 text-facam-yellow">
+                  {STAR_VALUES.map((v) => (
+                    <Star key={v} className="size-4 fill-current" aria-hidden />
+                  ))}
+                </div>
+              </motion.div>
+            </Reveal>
+          ))}
         </div>
-      </section>
+      </SectionShell>
 
       {/* Espace entreprise */}
       <SectionShell id="entreprises" className="bg-gray-50 py-20">
@@ -721,11 +1097,12 @@ export function HomeLanding() {
           <Reveal className="lg:col-span-6">
             <p className="text-sm font-semibold text-facam-blue">Espace entreprise</p>
             <h2 className="mt-2 text-3xl font-bold text-facam-dark">
-              Formez vos équipes aux métiers de l’industrie
+              FACAM STAIRWAY : industrie, savoir-faire et équipements modernes
             </h2>
             <p className="mt-3 text-gray-600 leading-relaxed">
-              FACAM ACADEMIA accompagne les entreprises industrielles dans la montée en compétences
-              de leurs collaborateurs, en Afrique et au-delà.
+              FACAM STAIRWAY s’appuie sur des machines de dernière génération et des standards
+              industriels exigeants pour produire des solutions d’hygiène et d’emballage adaptées au
+              marché. Nos valeurs guident chaque décision.
             </p>
 
             <div className="mt-6 space-y-3">
@@ -743,12 +1120,12 @@ export function HomeLanding() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/login">
                 <Button variant="primary">
-                  Accéder à la plateforme <ArrowRight />
+                  Commencer le parcours <ArrowRight />
                 </Button>
               </Link>
               <Link href="#footer">
                 <Button variant="outline" className="border-facam-blue/30 text-facam-blue">
-                  Discuter d’un projet de formation
+                  Visite & informations pratiques
                 </Button>
               </Link>
             </div>
@@ -758,21 +1135,14 @@ export function HomeLanding() {
             <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
               {/* Image de présentation de l'entreprise — à remplacer par un visuel fourni */}
               <div className="relative aspect-[16/9] w-full bg-facam-blue-tint">
-                <Image
-                  src="/entreprise.jpg"
+                <SafeImage
+                  src="/F10.jpg"
                   alt="Présentation de l’entreprise et de ses installations"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 560px"
                 />
                 <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/0 to-transparent" />
-              </div>
-              <div className="p-6">
-                <p className="text-sm font-semibold text-facam-blue">À propos de FACAM ACADEMIA</p>
-                <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  Une équipe de formateurs et d’ingénieurs passionnés, engagés pour préparer les
-                  talents africains aux futurs métiers de l’industrie.
-                </p>
               </div>
             </div>
           </Reveal>
@@ -869,7 +1239,16 @@ export function HomeLanding() {
           <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
             {/* Marque et description */}
             <div className="lg:col-span-5">
-              <p className="font-blacksword text-4xl text-facam-yellow">{APP_NAME}</p>
+              <div className="inline-flex items-center gap-3">
+                <Image
+                  src="/Facam%20Academia-03%202.png"
+                  alt={APP_NAME}
+                  width={150}
+                  height={40}
+                  className="h-9 w-auto object-contain"
+                  priority
+                />
+              </div>
               <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">
                 La plateforme premium de formation industrielle en ligne. Formez-vous, validez vos
                 compétences et certifiez-vous.
@@ -891,10 +1270,10 @@ export function HomeLanding() {
                 </Link>
               </div>
             </div>
-            {/* Plateforme */}
+            {/* Liens principaux */}
             <div className="lg:col-span-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
-                Plateforme
+                Navigation
               </h3>
               <ul className="mt-4 space-y-3 text-sm text-white/75">
                 <li>
@@ -907,50 +1286,22 @@ export function HomeLanding() {
                     Connexion
                   </Link>
                 </li>
-                <li>
-                  <Link href="/#footer" className="transition-colors hover:text-white">
-                    Tarifs & accès
-                  </Link>
-                </li>
               </ul>
             </div>
-            {/* Ressources */}
+            {/* Entreprise */}
             <div className="lg:col-span-2">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
-                Ressources
+                Entreprise
               </h3>
               <ul className="mt-4 space-y-3 text-sm text-white/75">
                 <li>
-                  <Link href="/#footer" className="transition-colors hover:text-white">
+                  <Link href="/#entreprises" className="transition-colors hover:text-white">
                     Former vos équipes
                   </Link>
                 </li>
                 <li>
-                  <Link href="/support" className="transition-colors hover:text-white">
-                    Support
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#footer" className="transition-colors hover:text-white">
+                  <Link href="/#entreprises" className="transition-colors hover:text-white">
                     Partenariats
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            {/* Légal */}
-            <div className="lg:col-span-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
-                Légal
-              </h3>
-              <ul className="mt-4 space-y-3 text-sm text-white/75">
-                <li>
-                  <Link href="/#footer" className="transition-colors hover:text-white">
-                    Confidentialité
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#footer" className="transition-colors hover:text-white">
-                    Conditions d&apos;utilisation
                   </Link>
                 </li>
               </ul>

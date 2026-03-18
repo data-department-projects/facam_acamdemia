@@ -7,6 +7,7 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import parser from '@typescript-eslint/parser';
 import plugin from '@typescript-eslint/eslint-plugin';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -104,9 +105,13 @@ export default [
         exports: 'writable',
       },
     },
-    plugins: { '@typescript-eslint': plugin },
+    plugins: {
+      '@typescript-eslint': plugin,
+      'react-hooks': pluginReactHooks,
+    },
     rules: {
       ...plugin.configs.recommended.rules,
+      ...pluginReactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     },
   },

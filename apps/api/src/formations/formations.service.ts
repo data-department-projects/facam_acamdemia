@@ -56,6 +56,7 @@ export class FormationsService {
     const skip = (page - 1) * limit;
     const isStudent = role === 'student';
     const isEmployee = role === 'employee';
+    const isLearner = isStudent || isEmployee;
     const isModuleManager =
       role === 'module_manager_internal' || role === 'module_manager_external';
     // moduleType en base peut être un ENUM (EXTERNE/INTERNE) ou texte (externe/interne) : on accepte les deux.
@@ -79,7 +80,7 @@ export class FormationsService {
         orderBy: { updatedAt: 'desc' },
         include: {
           _count: { select: { chapters: true, quizzes: true } },
-          ...(isStudent
+          ...(isLearner
             ? {
                 enrollments: {
                   where: { userId },
@@ -99,7 +100,7 @@ export class FormationsService {
     const firstVideoByModule = await this.getFirstVideoUrlByModuleIds(moduleIds);
     const dataAvecProgression = data.map((m) => {
       const enrollment =
-        isStudent &&
+        isLearner &&
         (m as { enrollments?: Array<{ progressPercent: number; completedAt: Date | null }> })
           .enrollments?.[0];
       return {
@@ -158,7 +159,7 @@ export class FormationsService {
       throw new NotFoundException('Module introuvable');
     }
     let enrollment = null;
-    if (userId && role === 'student') {
+    if (userId && (role === 'student' || role === 'employee')) {
       enrollment = await this.prisma.enrollment.findFirst({
         where: { userId, moduleId: id },
         select: {
@@ -454,17 +455,27 @@ export class FormationsService {
       quizzesCompletedByEnrollment[a.enrollmentId].add(a.quizId);
     }
 
-    const finalGrades = await this.prisma.finalQuizGrade.findMany({
-      where: { enrollmentId: { in: enrollmentIds } },
-      select: {
-        enrollmentId: true,
-        gradeOver20: true,
-        gradedAt: true,
+    // Score final = dernière tentative réussie du quiz final (QCM), score en %
+    const finalAttempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        enrollmentId: { in: enrollmentIds },
+        passed: true,
+        quiz: { isFinal: true },
       },
+      include: { quiz: { select: { moduleId: true } } },
+      orderBy: { submittedAt: 'desc' },
     });
-    const finalByEnrollment: Record<string, { gradeOver20: number; gradedAt: Date }> = {};
-    for (const g of finalGrades) {
-      finalByEnrollment[g.enrollmentId] = { gradeOver20: g.gradeOver20, gradedAt: g.gradedAt };
+    const finalByEnrollment: Record<string, { scorePercent: number; submittedAt: Date }> = {};
+    for (const e of enrollments) {
+      const attempt = finalAttempts.find(
+        (a) => a.enrollmentId === e.id && a.quiz.moduleId === e.moduleId
+      );
+      if (attempt) {
+        finalByEnrollment[e.id] = {
+          scorePercent: attempt.scorePercent ?? 0,
+          submittedAt: attempt.submittedAt,
+        };
+      }
     }
 
     const studentsTable = enrollments.map((e) => {
@@ -481,8 +492,8 @@ export class FormationsService {
         completedAt: e.completedAt?.toISOString() ?? null,
         quizzesCompleted,
         totalQuizzes: quizCount,
-        finalQuizScore: finalInfo?.gradeOver20 ?? null,
-        finalQuizPassedAt: finalInfo?.gradedAt?.toISOString() ?? null,
+        finalQuizScore: finalInfo?.scorePercent ?? null,
+        finalQuizPassedAt: finalInfo?.submittedAt?.toISOString() ?? null,
       };
     });
 
@@ -504,7 +515,7 @@ export class FormationsService {
   }
 
   /**
-   * Détail d'un étudiant pour la page Stats : progression, score final, scores par quiz de chapitre.
+   * Détail d'un étudiant pour la page Stats : progression, score final (%), scores par quiz de chapitre.
    */
   async statsStudentDetail(
     enrollmentId: string,
@@ -535,9 +546,14 @@ export class FormationsService {
     if (!peutVoir) {
       throw new ForbiddenException('Accès refusé');
     }
-    const finalGrade = await this.prisma.finalQuizGrade.findFirst({
-      where: { enrollmentId },
-      select: { gradeOver20: true, gradedAt: true },
+    const finalAttempt = await this.prisma.quizAttempt.findFirst({
+      where: {
+        enrollmentId,
+        passed: true,
+        quiz: { moduleId: module_.id, isFinal: true },
+      },
+      orderBy: { submittedAt: 'desc' },
+      select: { scorePercent: true, submittedAt: true },
     });
     const attempts = await this.prisma.quizAttempt.findMany({
       where: {
@@ -559,8 +575,8 @@ export class FormationsService {
     return {
       fullName: enrollment.user.fullName,
       progressPercent: enrollment.progressPercent,
-      finalQuizScore: finalGrade?.gradeOver20 ?? null,
-      finalQuizPassedAt: finalGrade?.gradedAt?.toISOString() ?? null,
+      finalQuizScore: finalAttempt?.scorePercent ?? null,
+      finalQuizPassedAt: finalAttempt?.submittedAt?.toISOString() ?? null,
       chapterScores,
     };
   }

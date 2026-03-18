@@ -64,11 +64,11 @@ export default function ModuleManagerQuizPage() {
     );
   }
 
-  const module = modules[0];
+  const firstModule = modules[0];
   return (
     <ModuleQuizClient
-      moduleId={module.id}
-      initialModule={{ id: module.id, title: module.title }}
+      moduleId={firstModule.id}
+      initialModule={{ id: firstModule.id, title: firstModule.title }}
       embedded
     />
   );

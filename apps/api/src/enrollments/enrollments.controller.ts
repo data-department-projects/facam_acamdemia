@@ -82,4 +82,9 @@ export class EnrollmentsController {
   ) {
     return this.enrollmentsService.mettreAJourProgression(id, dto, user.sub, user.role);
   }
+
+  @Get(':id/progress-items')
+  listerProgressItems(@Param('id') id: string, @CurrentUser() user: UtilisateurPayload) {
+    return this.enrollmentsService.listerElementsCompletes(id, user.sub, user.role);
+  }
 }

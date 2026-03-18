@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search } from 'lucide-react';
@@ -24,26 +24,32 @@ interface ApiCourse {
   progress?: number;
 }
 
-export function StudentHeader({ user }: { user: { fullName: string; email: string } }) {
+export function StudentHeader(props: Readonly<{ user: { fullName: string; email: string } }>) {
+  const { user } = props;
   const [searchQuery, setSearchQuery] = useState('');
   const [myLearningOpen, setMyLearningOpen] = useState(false);
   const [myCourses, setMyCourses] = useState<ApiCourse[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<{ data: ApiCourse[] }>('/formations?limit=20')
-      .then((res) => {
-        if (!cancelled) setMyCourses(Array.isArray(res.data) ? res.data : []);
-      })
-      .catch(() => {
-        if (!cancelled) setMyCourses([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+  const loadMyCourses = useCallback(async () => {
+    try {
+      const res = await api.get<{ data: ApiCourse[] }>('/formations?limit=20');
+      setMyCourses(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setMyCourses([]);
+    }
   }, []);
+
+  // Chargement initial
+  useEffect(() => {
+    loadMyCourses();
+  }, [loadMyCourses]);
+
+  // Recharger à l'ouverture du dropdown pour refléter la progression la plus récente
+  useEffect(() => {
+    if (!myLearningOpen) return;
+    loadMyCourses();
+  }, [myLearningOpen, loadMyCourses]);
 
   // Fermer le dropdown au clic extérieur
   useEffect(() => {

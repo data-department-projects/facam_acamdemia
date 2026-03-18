@@ -8,6 +8,9 @@ import type { SubmitAttemptDto } from './dto/submit-attempt.dto';
 import type { UpsertFinalQuizDto } from './dto/upsert-final-quiz.dto';
 import { QUIZ_MIN_SCORE_PERCENT } from '../core/constants';
 
+/** Libellé unique pour le certificat (plus de mention Très bien / Bien / etc.). */
+const CERTIFICATE_LABEL = 'Validé';
+
 @Injectable()
 export class QuizService {
   constructor(private readonly prisma: PrismaService) {}
@@ -46,7 +49,9 @@ export class QuizService {
   }
 
   /**
-   * Soumet une tentative de quiz. QCM : calcul du score et passed si >= 70 %. Quiz final : pas de score auto.
+   * Soumet une tentative de quiz. QCM et quiz final : calcul du score en pourcentage et passed
+   * selon le seuil du quiz (minScoreToPass ou 70 %). Si quiz final réussi et enrollmentId fourni,
+   * met à jour l'inscription (completedAt) et crée le certificat pour permettre la vue/téléchargement.
    */
   async soumettreTentative(
     quizId: string,
@@ -55,23 +60,24 @@ export class QuizService {
   ): Promise<{ attemptId: string; scorePercent: number | null; passed: boolean | null }> {
     const quiz = await this.prisma.quiz.findUnique({
       where: { id: quizId },
-      include: { questions: { orderBy: { order: 'asc' } } },
+      include: {
+        questions: { orderBy: { order: 'asc' } },
+        module: true,
+      },
     });
     if (!quiz) {
       throw new NotFoundException('Quiz introuvable');
     }
     const enrollmentId = dto.enrollmentId ?? null;
-    let scorePercent: number | null = null;
-    let passed: boolean | null = null;
-    if (!quiz.isFinal) {
-      const correctCount = quiz.questions.reduce((acc, q, i) => {
-        const selectedIndex = dto.answers[i] ?? -1;
-        return acc + (selectedIndex === q.correctIndex ? 1 : 0);
-      }, 0);
-      scorePercent =
-        quiz.questions.length > 0 ? Math.round((correctCount / quiz.questions.length) * 100) : 0;
-      passed = scorePercent >= QUIZ_MIN_SCORE_PERCENT;
-    }
+    const minScore = quiz.minScoreToPass != null ? quiz.minScoreToPass : QUIZ_MIN_SCORE_PERCENT;
+    const correctCount = quiz.questions.reduce((acc, q, i) => {
+      const selectedIndex = dto.answers[i] ?? -1;
+      return acc + (selectedIndex === q.correctIndex ? 1 : 0);
+    }, 0);
+    const scorePercent =
+      quiz.questions.length > 0 ? Math.round((correctCount / quiz.questions.length) * 100) : 0;
+    const passed = scorePercent >= minScore;
+
     const attempt = await this.prisma.quizAttempt.create({
       data: {
         userId,
@@ -83,6 +89,30 @@ export class QuizService {
       },
       select: { id: true },
     });
+
+    // Quiz final réussi avec inscription : compléter l'enrollment et créer le certificat si absent
+    if (quiz.isFinal && passed && enrollmentId && quiz.module) {
+      const finalGrade = Math.min(20, Math.round((scorePercent / 100) * 20));
+      const existingCert = await this.prisma.certificate.findUnique({
+        where: { enrollmentId },
+      });
+      if (!existingCert) {
+        await this.prisma.certificate.create({
+          data: {
+            enrollmentId,
+            userId,
+            moduleId: quiz.module.id,
+            finalGrade,
+            mention: CERTIFICATE_LABEL,
+          },
+        });
+      }
+      await this.prisma.enrollment.update({
+        where: { id: enrollmentId },
+        data: { completedAt: new Date() },
+      });
+    }
+
     return {
       attemptId: attempt.id,
       scorePercent,

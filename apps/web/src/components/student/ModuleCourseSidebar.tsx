@@ -17,6 +17,8 @@ export interface ChapterSidebarItem {
   durationMinutes?: number;
   type: 'video' | 'document' | 'quiz';
   isQuiz?: boolean;
+  /** Si fourni, permet de naviguer directement vers l'item (quiz). */
+  href?: string;
 }
 
 interface ModuleCourseSidebarProps {
@@ -31,6 +33,7 @@ interface ModuleCourseSidebarProps {
   }>;
   currentChapterOrder: number;
   completedChapterOrders?: Set<number>;
+  completedItemIds?: Set<string>;
 }
 
 function formatDuration(min: number): string {
@@ -46,6 +49,7 @@ export function ModuleCourseSidebar({
   chapters,
   currentChapterOrder,
   completedChapterOrders = new Set(),
+  completedItemIds = new Set(),
 }: ModuleCourseSidebarProps) {
   const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
 
@@ -112,15 +116,72 @@ export function ModuleCourseSidebar({
 
             return (
               <li key={ch.id}>
-                <Link
-                  href={`/student/modules/${moduleId}/chapitre/${ch.order}`}
+                <div
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50',
+                    'px-4 py-3 transition-colors hover:bg-gray-50',
                     isCurrent && 'bg-facam-blue-tint border-l-4 border-l-facam-yellow'
                   )}
                 >
-                  {content}
-                </Link>
+                  <Link
+                    href={`/student/modules/${moduleId}/chapitre/${ch.order}`}
+                    className="flex items-center gap-3 text-left"
+                  >
+                    {content}
+                  </Link>
+
+                  {/* Sous-items (vidéo / ressources / quiz) */}
+                  {(ch.items?.length ?? 0) > 0 && (
+                    <ul className="mt-2 space-y-1 pl-9">
+                      {(ch.items ?? []).map((it) => {
+                        const done = completedItemIds.has(it.id);
+                        const label =
+                          it.type === 'quiz'
+                            ? 'Quiz'
+                            : it.type === 'document'
+                              ? 'Ressources'
+                              : 'Vidéo';
+
+                        const row = (
+                          <span
+                            className={cn(
+                              'flex items-center gap-2 rounded-md px-2 py-1 text-xs',
+                              done ? 'text-facam-dark' : 'text-gray-600',
+                              it.type === 'quiz' && 'font-semibold'
+                            )}
+                          >
+                            <span className="inline-flex size-4 items-center justify-center rounded border border-gray-200 bg-white">
+                              {done ? (
+                                <Check className="size-3 text-facam-yellow" aria-hidden />
+                              ) : (
+                                <span
+                                  className="h-1.5 w-1.5 rounded-full bg-gray-300"
+                                  aria-hidden
+                                />
+                              )}
+                            </span>
+                            <span className="truncate">
+                              {label}
+                              {it.title ? ` · ${it.title}` : ''}
+                            </span>
+                          </span>
+                        );
+
+                        // Quiz: lien direct si href fourni. Autres: restent informatifs (navigation via chapitre).
+                        return (
+                          <li key={it.id}>
+                            {it.href ? (
+                              <Link href={it.href} className="block hover:bg-white/70 rounded-md">
+                                {row}
+                              </Link>
+                            ) : (
+                              row
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               </li>
             );
           })}

@@ -204,6 +204,32 @@ export class EnrollmentsService {
   }
 
   /**
+   * Retourne la liste des éléments complétés (chapterItemId) pour une inscription.
+   * Utilisé par le front pour afficher la progression réelle dans le sommaire (sidebar).
+   */
+  async listerElementsCompletes(
+    enrollmentId: string,
+    userId: string,
+    role: string
+  ): Promise<{ chapterItemIds: string[] }> {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { id: true, userId: true },
+    });
+    if (!enrollment) {
+      throw new NotFoundException('Inscription introuvable');
+    }
+    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+      throw new ForbiddenException('Accès refusé');
+    }
+    const rows = await this.prisma.enrollmentProgress.findMany({
+      where: { enrollmentId },
+      select: { chapterItemId: true },
+    });
+    return { chapterItemIds: rows.map((r) => r.chapterItemId) };
+  }
+
+  /**
    * Compte des inscriptions complétées (admin / platform_manager) pour le dashboard.
    */
   async compterCompletions(): Promise<{ totalCompletions: number }> {
