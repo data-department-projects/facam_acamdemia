@@ -1,10 +1,15 @@
 /**
- * DTO de création d'un utilisateur (étudiant ou responsable de module).
+ * DTO de création d'un utilisateur (étudiant, employé, responsable module interne/externe).
  */
 
 import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
 
-const ROLES_AUTORISES = ['student', 'module_manager'] as const;
+const ROLES_AUTORISES = [
+  'student',
+  'employee',
+  'module_manager_internal',
+  'module_manager_external',
+] as const;
 
 export class CreateUserDto {
   @IsEmail({}, { message: 'Email invalide' })
@@ -18,10 +23,12 @@ export class CreateUserDto {
   @MinLength(2, { message: 'Le nom doit contenir au moins 2 caractères' })
   fullName: string;
 
-  @IsIn(ROLES_AUTORISES, { message: 'Rôle invalide (student ou module_manager)' })
+  @IsIn(ROLES_AUTORISES, {
+    message: 'Rôle invalide (student, employee, module_manager_internal, module_manager_external)',
+  })
   role: (typeof ROLES_AUTORISES)[number];
 
-  /** ID du module à assigner (obligatoire si role === module_manager). */
+  /** ID du module à assigner (obligatoire si role est un responsable de module). */
   @IsOptional()
   @IsString()
   moduleId?: string;

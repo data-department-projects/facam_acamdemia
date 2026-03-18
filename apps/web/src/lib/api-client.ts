@@ -132,13 +132,16 @@ export async function apiRequest<T>(path: string, config: RequestConfig = {}): P
   return data as T;
 }
 
-/** Méthodes GET / POST / PATCH / DELETE pour faciliter les appels. */
+/** Méthodes GET / POST / PUT / PATCH / DELETE pour faciliter les appels. */
 export const api = {
   get: <T>(path: string, config?: RequestConfig) =>
     apiRequest<T>(path, { ...config, method: 'GET' }),
 
   post: <T>(path: string, body?: Record<string, unknown>, config?: RequestConfig) =>
     apiRequest<T>(path, { ...config, method: 'POST', body }),
+
+  put: <T>(path: string, body?: Record<string, unknown>, config?: RequestConfig) =>
+    apiRequest<T>(path, { ...config, method: 'PUT', body }),
 
   patch: <T>(path: string, body?: Record<string, unknown>, config?: RequestConfig) =>
     apiRequest<T>(path, { ...config, method: 'PATCH', body }),

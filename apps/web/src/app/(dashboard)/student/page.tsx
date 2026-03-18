@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { CourseCard } from '@/components/student/CourseCard';
+import { StudentTrainingCarousel } from '@/components/student/StudentTrainingCarousel';
+import { FacamStairwayVideosSection } from '@/components/student/FacamStairwayVideosSection';
 import { getModuleDisplayImage } from '@/lib/utils';
 import type { Module } from '@/types';
 
@@ -24,7 +26,9 @@ interface ApiModule {
 
 export default function StudentDashboardPage() {
   const [modules, setModules] = useState<ApiModule[]>([]);
+  const [myModules, setMyModules] = useState<ApiModule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMy, setLoadingMy] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +52,31 @@ export default function StudentDashboardPage() {
     };
   }, []);
 
-  const inProgress = modules.filter((m) => (m.progress ?? 0) > 0 && (m.progress ?? 0) < 100);
+  useEffect(() => {
+    let cancelled = false;
+    // Sans catalogue=1 : uniquement les modules où l'étudiant est inscrit (avec progression)
+    api
+      .get<{ data: ApiModule[] }>('/formations?limit=50')
+      .then((res) => {
+        if (!cancelled) {
+          setMyModules(Array.isArray(res.data) ? res.data : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMyModules([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingMy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // "En cours" = inscrit et non terminé. On affiche aussi les modules à 0% (démarrés mais pas encore complétés).
+  const inProgress = myModules.filter(
+    (m) => (m.completedAt ?? null) === null && (m.progress ?? 0) < 100
+  );
 
   const toCourse = (m: ApiModule): Module => ({
     id: m.id,
@@ -64,6 +92,7 @@ export default function StudentDashboardPage() {
   return (
     <div className="pb-12 bg-white">
       <div className="container mx-auto px-4 md:px-6 py-8">
+        <StudentTrainingCarousel className="mb-10" />
         <h2 className="text-xl font-bold text-facam-dark mb-6 font-montserrat">
           Recommandé pour vous
         </h2>
@@ -83,21 +112,30 @@ export default function StudentDashboardPage() {
         )}
       </div>
 
+      <div className="container mx-auto px-4 md:px-6">
+        <FacamStairwayVideosSection className="border-t border-gray-100" />
+      </div>
+
       <div className="container mx-auto px-4 md:px-6 py-8 border-t border-gray-100">
         <h2 className="text-xl font-bold text-facam-dark mb-6 font-montserrat">
           Continuer votre apprentissage
         </h2>
-        {loading ? (
-          <p className="text-gray-500">Chargement…</p>
-        ) : inProgress.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {inProgress.map((mod) => (
-              <CourseCard key={mod.id} course={toCourse(mod)} showProgress />
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500">Aucun cours en cours. Découvrez les modules ci-dessus.</p>
-        )}
+        {(() => {
+          if (loadingMy) return <p className="text-gray-500">Chargement…</p>;
+          if (inProgress.length === 0)
+            return (
+              <p className="text-gray-500">
+                Aucun cours en cours. Découvrez les modules ci-dessus.
+              </p>
+            );
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {inProgress.map((mod) => (
+                <CourseCard key={mod.id} course={toCourse(mod)} showProgress />
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

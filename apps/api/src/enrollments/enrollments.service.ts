@@ -17,11 +17,50 @@ export class EnrollmentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Démarre un module pour l'utilisateur courant (étudiant/employé) : crée une inscription
+   * si elle n'existe pas. Idempotent : si déjà inscrit, retourne l'inscription existante.
+   */
+  async demarrerModule(
+    moduleId: string,
+    userId: string,
+    role: string
+  ): Promise<{ id: string; moduleId: string; alreadyEnrolled: boolean }> {
+    const isLearner = role === 'student' || role === 'employee';
+    if (!isLearner) {
+      throw new ForbiddenException('Seuls les étudiants et employés peuvent démarrer un module');
+    }
+    const module_ = await this.prisma.module.findUnique({ where: { id: moduleId } });
+    if (!module_) {
+      throw new NotFoundException('Module introuvable');
+    }
+    const existing = await this.prisma.enrollment.findFirst({
+      where: { userId, moduleId },
+      select: { id: true, moduleId: true },
+    });
+    if (existing) {
+      return {
+        id: existing.id,
+        moduleId: existing.moduleId,
+        alreadyEnrolled: true,
+      };
+    }
+    const enrollment = await this.prisma.enrollment.create({
+      data: { userId, moduleId },
+      select: { id: true, moduleId: true },
+    });
+    return {
+      id: enrollment.id,
+      moduleId: enrollment.moduleId,
+      alreadyEnrolled: false,
+    };
+  }
+
+  /**
    * Inscrit un étudiant à un module (admin uniquement).
    */
   async creer(dto: CreateEnrollmentDto): Promise<{ id: string; userId: string; moduleId: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
-    if (!user || user.role !== 'student') {
+    if (user?.role !== 'student') {
       throw new NotFoundException('Étudiant introuvable');
     }
     const module_ = await this.prisma.module.findUnique({ where: { id: dto.moduleId } });
@@ -162,6 +201,32 @@ export class EnrollmentsService {
       data: { progressPercent },
     });
     return { completed: true };
+  }
+
+  /**
+   * Retourne la liste des éléments complétés (chapterItemId) pour une inscription.
+   * Utilisé par le front pour afficher la progression réelle dans le sommaire (sidebar).
+   */
+  async listerElementsCompletes(
+    enrollmentId: string,
+    userId: string,
+    role: string
+  ): Promise<{ chapterItemIds: string[] }> {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { id: enrollmentId },
+      select: { id: true, userId: true },
+    });
+    if (!enrollment) {
+      throw new NotFoundException('Inscription introuvable');
+    }
+    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+      throw new ForbiddenException('Accès refusé');
+    }
+    const rows = await this.prisma.enrollmentProgress.findMany({
+      where: { enrollmentId },
+      select: { chapterItemId: true },
+    });
+    return { chapterItemIds: rows.map((r) => r.chapterItemId) };
   }
 
   /**

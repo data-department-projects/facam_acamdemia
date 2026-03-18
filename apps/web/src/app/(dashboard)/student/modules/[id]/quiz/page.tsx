@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -68,8 +68,12 @@ function QuestionBlock({
 function StudentModuleQuizContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const moduleId = params.id as string;
   const quizId = searchParams.get('quizId');
+  const nextHref = searchParams.get('next');
+  const chapterId = searchParams.get('chapterId');
+  const quizItemId = searchParams.get('quizItemId');
 
   const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
@@ -115,6 +119,14 @@ function StudentModuleQuizContent() {
     };
   }, [quizId, moduleId]);
 
+  useEffect(() => {
+    if (!submitted || !result || !nextHref) return;
+    const passed = result.passed ?? false;
+    if (passed) {
+      router.push(nextHref);
+    }
+  }, [submitted, result, nextHref, router]);
+
   const handleSelect = (questionIndex: number, value: number) => {
     setAnswers((prev) => {
       const next = [...prev];
@@ -140,6 +152,25 @@ function StudentModuleQuizContent() {
         .then((res) => {
           setResult(res);
           setSubmitted(true);
+          // Persistance "reprise" : si échec -> rester sur le quiz (item), si réussite -> marquer l'item complété
+          const passed = res.passed ?? false;
+          if (enrollmentId) {
+            const ops: Promise<unknown>[] = [];
+            if (passed && quizItemId) {
+              ops.push(
+                api.post(`/enrollments/${enrollmentId}/complete-item`, {
+                  chapterItemId: quizItemId,
+                })
+              );
+            }
+            ops.push(
+              api.patch(`/enrollments/${enrollmentId}/progression`, {
+                ...(chapterId ? { lastViewedChapterId: chapterId } : {}),
+                ...(quizItemId ? { lastViewedItemId: quizItemId } : {}),
+              })
+            );
+            void Promise.allSettled(ops);
+          }
         })
         .catch(() => setSubmitting(false))
         .finally(() => setSubmitting(false));
@@ -186,11 +217,8 @@ function StudentModuleQuizContent() {
                 ? `Félicitations, vous avez réussi (seuil ${minScore} %).`
                 : `Seuil requis : ${minScore} %. Vous pouvez réessayer.`}
             </p>
-            <div className="mt-4 flex gap-4">
-              <Link href={`/student/modules/${moduleId}`}>
-                <Button variant="outline">Retour au module</Button>
-              </Link>
-              {!passed && (
+            {!passed && (
+              <div className="mt-4 flex gap-4">
                 <Button
                   onClick={() => {
                     setSubmitted(false);
@@ -201,8 +229,8 @@ function StudentModuleQuizContent() {
                 >
                   Réessayer
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

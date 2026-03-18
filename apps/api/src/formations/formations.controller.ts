@@ -21,7 +21,7 @@ import { RolesGuard } from '../core/guards/roles.guard';
 import { Roles } from '../core/decorators/roles.decorator';
 import { CurrentUser } from '../core/decorators/current-user.decorator';
 import type { UtilisateurPayload } from '../core/decorators/current-user.decorator';
-import { ROLES } from '../core/constants';
+import { ROLES, MODULE_MANAGER_ROLES } from '../core/constants';
 
 @Controller('formations')
 export class FormationsController {
@@ -56,6 +56,28 @@ export class FormationsController {
   @Get('test')
   getTest(): { status: string } {
     return { status: 'formations ok' };
+  }
+
+  @Get('stats/dashboard')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...MODULE_MANAGER_ROLES, ROLES.ADMIN, ROLES.PLATFORM_MANAGER)
+  statsDashboard(@CurrentUser() user: UtilisateurPayload, @Query('year') year?: string) {
+    const yearNum = year ? parseInt(year, 10) : undefined;
+    return this.formationsService.statsDashboard(
+      user.sub,
+      user.role,
+      Number.isFinite(yearNum) ? yearNum : undefined
+    );
+  }
+
+  @Get('stats/student-detail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(...MODULE_MANAGER_ROLES, ROLES.ADMIN, ROLES.PLATFORM_MANAGER)
+  statsStudentDetail(
+    @Query('enrollmentId') enrollmentId: string,
+    @CurrentUser() user: UtilisateurPayload
+  ) {
+    return this.formationsService.statsStudentDetail(enrollmentId, user.sub, user.role);
   }
 
   @Get(':id')

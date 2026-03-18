@@ -1,5 +1,8 @@
 /**
- * Service des notes du quiz final : attribution par le responsable, création certificat si >= 10.
+ * Service des notes du quiz final (désactivé).
+ * La correction manuelle par le responsable a été supprimée : le quiz final est un QCM,
+ * le score et le certificat sont calculés automatiquement selon le seuil défini à la création du quiz.
+ * Ce service n'est plus utilisé par le contrôleur.
  */
 
 import {

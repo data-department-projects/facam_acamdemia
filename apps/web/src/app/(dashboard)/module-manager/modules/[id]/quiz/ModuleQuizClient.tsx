@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, FileQuestion, Plus } from 'lucide-react';
+import { ArrowLeft, FileQuestion, Plus, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -19,67 +19,171 @@ interface ApiModule {
   title: string;
 }
 
-interface ApiChapter {
-  id: string;
-  title: string;
-  order: number;
-  quizzes?: { id: string }[];
+interface ModuleQuizClientProps {
+  moduleId: string;
+  /** Module déjà connu (ex. depuis la liste) : évite un second GET et l’erreur « Module introuvable ». */
+  initialModule?: { id: string; title: string };
+  /** Quand true, la page Quiz affiche ce contenu sans lien « Retour » (on reste sur /module-manager/quiz). */
+  embedded?: boolean;
 }
 
-export function ModuleQuizClient({ moduleId }: { moduleId: string }) {
-  const [mod, setMod] = useState<ApiModule | null>(null);
-  const [modChapters, setModChapters] = useState<ApiChapter[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ModuleQuizClient({
+  moduleId,
+  initialModule,
+  embedded = false,
+}: ModuleQuizClientProps) {
+  const [mod, setMod] = useState<ApiModule | null>(initialModule ?? null);
+  const [loading, setLoading] = useState(!initialModule);
 
   const load = useCallback(async () => {
+    if (initialModule && initialModule.id === moduleId) {
+      setMod(initialModule);
+      setLoading(false);
+      return;
+    }
     try {
-      const [moduleRes, chaptersRes] = await Promise.all([
-        api.get<ApiModule>(`/formations/${moduleId}`),
-        api.get<ApiChapter[]>(`/chapitres/module/${moduleId}`),
-      ]);
+      const moduleRes = await api.get<ApiModule>(`/formations/${moduleId}`);
       setMod(moduleRes);
-      setModChapters(
-        Array.isArray(chaptersRes) ? chaptersRes.sort((a, b) => a.order - b.order) : []
-      );
     } catch {
       setMod(null);
-      setModChapters([]);
     } finally {
       setLoading(false);
     }
-  }, [moduleId]);
+  }, [moduleId, initialModule]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const [quizModal, setQuizModal] = useState<'chapter' | 'final' | null>(null);
-  const [quizTargetChapterTitle, setQuizTargetChapterTitle] = useState('');
+  const [quizModal, setQuizModal] = useState<'final' | null>(null);
   const [questions, setQuestions] = useState<QuizQuestionForm[]>([]);
   const [minScoreToPass, setMinScoreToPass] = useState(70);
 
-  const openQuizForChapter = (ch: { id: string; title: string }) => {
-    setQuizTargetChapterTitle(ch.title);
-    setQuizModal('chapter');
-    setQuestions([]);
-    setMinScoreToPass(70);
-  };
+  const [savingFinal, setSavingFinal] = useState(false);
+  const [finalQuizError, setFinalQuizError] = useState<string | null>(null);
+  const [finalSummary, setFinalSummary] = useState<{
+    questionCount: number;
+    minScoreToPass: number;
+    questionsPreview: string[];
+  } | null>(null);
 
-  const openQuizFinal = () => {
-    setQuizTargetChapterTitle('');
+  const loadFinalSummary = useCallback(async () => {
+    try {
+      const data = await api.get<{
+        id: string;
+        minScoreToPass: number;
+        questions: {
+          id: string;
+          questionText: string;
+          options: string[];
+          correctIndex: number;
+          order: number;
+        }[];
+      } | null>(`/quiz/final?moduleId=${encodeURIComponent(moduleId)}`);
+
+      const qs = data?.questions ?? [];
+      setFinalSummary({
+        questionCount: qs.length,
+        minScoreToPass: data?.minScoreToPass ?? 80,
+        questionsPreview: qs
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .slice(0, 4)
+          .map((q) => q.questionText)
+          .filter(Boolean),
+      });
+    } catch {
+      setFinalSummary({ questionCount: 0, minScoreToPass: 80, questionsPreview: [] });
+    }
+  }, [moduleId]);
+
+  const openQuizFinal = useCallback(async () => {
     setQuizModal('final');
+    setFinalQuizError(null);
     setQuestions([]);
     setMinScoreToPass(80);
+    try {
+      const data = await api.get<{
+        id: string;
+        minScoreToPass: number;
+        questions: {
+          id: string;
+          questionText: string;
+          options: string[];
+          correctIndex: number;
+          order: number;
+        }[];
+      } | null>(`/quiz/final?moduleId=${encodeURIComponent(moduleId)}`);
+      if (data?.questions?.length) {
+        setQuestions(
+          data.questions.map((q, i) => ({
+            id: `q-${q.id}-${i}`,
+            questionText: q.questionText,
+            options: q.options,
+            correctIndex: q.correctIndex,
+          }))
+        );
+        setMinScoreToPass(data.minScoreToPass);
+      }
+    } catch {
+      setQuestions([]);
+      setMinScoreToPass(80);
+    }
+  }, [moduleId]);
+
+  const saveQuizFinal = async () => {
+    setFinalQuizError(null);
+    setSavingFinal(true);
+    try {
+      const payload = {
+        moduleId,
+        minScoreToPass: minScoreToPass,
+        questions: questions
+          .filter((q) => q.questionText.trim() && q.options.some((o) => o.trim()))
+          .map((q) => ({
+            questionText: q.questionText,
+            options: q.options,
+            correctIndex: q.correctIndex,
+          })),
+      };
+      await api.put('/quiz/final', payload);
+      setQuizModal(null);
+      await loadFinalSummary();
+    } catch (e) {
+      setFinalQuizError(e instanceof Error ? e.message : 'Erreur enregistrement');
+    } finally {
+      setSavingFinal(false);
+    }
   };
 
-  const saveQuiz = () => {
-    setQuizModal(null);
-  };
+  useEffect(() => {
+    loadFinalSummary();
+  }, [loadFinalSummary]);
+
+  const finalConfigured = (finalSummary?.questionCount ?? 0) > 0;
+  const finalChip = useMemo(() => {
+    if (!finalSummary) return null;
+    if (finalConfigured) {
+      return (
+        <span className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+          <CheckCircle2 className="size-4" aria-hidden />
+          Configuré · {finalSummary.questionCount} question(s) · seuil {finalSummary.minScoreToPass}
+          %
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+        <AlertTriangle className="size-4" aria-hidden />
+        Non configuré · Ajoutez des questions
+      </span>
+    );
+  }, [finalConfigured, finalSummary]);
 
   if (loading) {
     return (
       <div className="space-y-4">
-        <p className="text-gray-500">Chargement du module et des chapitres…</p>
+        <p className="text-gray-500">Chargement du module…</p>
       </div>
     );
   }
@@ -87,103 +191,100 @@ export function ModuleQuizClient({ moduleId }: { moduleId: string }) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
         Module introuvable.
-        <Link href="/module-manager/modules" className="ml-2 underline">
-          Retour aux modules
-        </Link>
+        {!embedded && (
+          <Link href="/module-manager/quiz" className="ml-2 underline">
+            Retour à la liste des modules
+          </Link>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/module-manager/modules">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-1 size-4" />
-            Retour
-          </Button>
-        </Link>
-      </div>
+      {!embedded && (
+        <div className="flex items-center gap-4">
+          <Link href="/module-manager/quiz">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-1 size-4" />
+              Retour à la liste des modules
+            </Button>
+          </Link>
+        </div>
+      )}
 
       <div className="rounded-lg border border-facam-blue/20 bg-facam-blue-tint/30 p-4">
-        <h1 className="text-xl font-bold text-facam-dark">Quiz du module : {mod.title}</h1>
+        <h1 className="text-xl font-bold text-facam-dark">Quiz final du module : {mod.title}</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Créez ou modifiez les quiz par chapitre et le quiz final. Chaque quiz est clairement
-          rattaché à un chapitre ou au quiz final du module.
+          Cette page est dédiée au <strong>quiz final</strong> du module. Créez les questions,
+          définissez les réponses possibles et la bonne réponse pour chaque question.
+          L&apos;étudiant devra valider ce quiz (score minimum requis) avant de pouvoir obtenir son
+          certificat téléchargeable. Les quiz de chapitre (parcours) se gèrent dans « Cours &
+          Contenu » lors de l&apos;ajout d&apos;un chapitre.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Quiz par chapitre</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {modChapters.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Aucun chapitre. Ajoutez d&apos;abord des chapitres au module.
-              </p>
-            ) : (
-              modChapters.map((ch) => (
-                <div
-                  key={ch.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
-                >
-                  <div>
-                    <p className="font-medium text-facam-dark">
-                      Chapitre {ch.order} : {ch.title}
-                    </p>
-                    <p className="text-xs text-gray-500">Quiz affiché après la vidéo du chapitre</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => openQuizForChapter(ch)}>
-                    <FileQuestion className="mr-1 size-4" />
-                    {(ch.quizzes?.length ?? 0) > 0 ? 'Modifier' : 'Créer'}
-                  </Button>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+      <Card className="border-gray-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileQuestion className="size-5 text-facam-blue" />
+            Quiz final du module
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-600 mb-4">
+            Quiz obligatoire à la fin du module. Définissez le score minimum (par défaut 80 %) pour
+            que l&apos;étudiant puisse obtenir son certificat. Créez ou modifiez les questions
+            ci-dessous.
+          </p>
 
-        <Card className="border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Quiz final</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Quiz à la fin du module. Score ≥ 80 % requis pour le certificat.
-            </p>
-            <Button variant="accent" onClick={openQuizFinal}>
-              <Plus className="mr-2 size-4" />
-              Créer ou modifier le quiz final
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+          {finalChip && <div className="mb-4">{finalChip}</div>}
+
+          {finalConfigured && finalSummary?.questionsPreview?.length ? (
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+              <p className="text-sm font-semibold text-facam-dark">Aperçu des questions</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
+                {finalSummary.questionsPreview.map((t) => (
+                  <li key={t}>{t.length > 80 ? `${t.slice(0, 80)}…` : t}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <Button variant="accent" onClick={openQuizFinal}>
+            <Plus className="mr-2 size-4" />
+            {finalConfigured
+              ? `Modifier le quiz final (${finalSummary?.questionCount ?? 0} question${
+                  (finalSummary?.questionCount ?? 0) > 1 ? 's' : ''
+                })`
+              : 'Créer le quiz final'}
+          </Button>
+        </CardContent>
+      </Card>
 
       <Modal
         open={quizModal !== null}
         onClose={() => setQuizModal(null)}
-        title={
-          quizModal === 'final'
-            ? `Quiz final — ${mod.title}`
-            : `Quiz — Chapitre : ${quizTargetChapterTitle}`
-        }
+        title={`Quiz final — ${mod.title}`}
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            {quizModal === 'final'
-              ? "Ce quiz apparaît à la fin du module. L'étudiant doit obtenir ≥ 80 % pour télécharger le certificat."
-              : `Ce quiz apparaît après la vidéo du chapitre « ${quizTargetChapterTitle} ».`}
+            Définissez les questions du quiz final, les choix possibles et la bonne réponse pour
+            chaque question. L&apos;étudiant doit obtenir le score minimum pour valider le module et
+            pouvoir télécharger son certificat.
           </p>
+          {finalQuizError && (
+            <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{finalQuizError}</p>
+          )}
           <QuizBuilder
             title=""
             questions={questions}
             onChange={setQuestions}
             minScoreToPass={minScoreToPass}
             onMinScoreChange={setMinScoreToPass}
-            submitLabel="Enregistrer le quiz"
-            onSubmit={saveQuiz}
+            submitLabel={savingFinal ? 'Enregistrement…' : 'Enregistrer le quiz'}
+            onSubmit={saveQuizFinal}
+            submitDisabled={savingFinal}
           />
         </div>
       </Modal>

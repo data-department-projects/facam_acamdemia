@@ -1,6 +1,6 @@
 /**
  * Écran certificat — Données depuis GET /certificates/enrollment/:enrollmentId.
- * Récupère l’enrollment du module puis les infos du certificat (nom, module, note, mention).
+ * Récupère l’enrollment du module puis les infos du certificat (nom, module, score) sans mention type Très bien/Bien.
  */
 
 'use client';
@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Award, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { api } from '@/lib/api-client';
+import { api, API_BASE, getAccessToken } from '@/lib/api-client';
 
 interface CertificateData {
   id: string;
@@ -27,8 +27,10 @@ export default function StudentCertificatPage() {
   const moduleId = params.id as string;
 
   const [cert, setCert] = useState<CertificateData | null>(null);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +49,7 @@ export default function StudentCertificatPage() {
           }
           return;
         }
+        if (!cancelled) setEnrollmentId(enrollmentId);
         return api.get<CertificateData>(`/certificates/enrollment/${enrollmentId}`);
       })
       .then((data) => {
@@ -105,23 +108,45 @@ export default function StudentCertificatPage() {
         <CardContent className="space-y-4">
           <p className="text-slate-600">
             Félicitations <strong>{cert.fullName}</strong> ! Vous avez validé le module{' '}
-            <strong>{cert.moduleTitle}</strong>. Note : {cert.finalGrade}/20 — {cert.mention}.
+            <strong>{cert.moduleTitle}</strong>. Score : {Math.round((cert.finalGrade / 20) * 100)}{' '}
+            % — Module validé.
           </p>
           <p className="text-xs text-slate-500">
             Délivré le {new Date(cert.issuedAt).toLocaleDateString('fr-FR')}.
           </p>
-          <a
-            href="#"
-            download
-            aria-label="Télécharger le certificat PDF"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-facam-blue px-4 text-sm font-medium text-white hover:bg-facam-dark"
+          <Button
+            type="button"
+            disabled={!enrollmentId || downloading}
+            onClick={async () => {
+              if (!enrollmentId) return;
+              setDownloading(true);
+              try {
+                const token = getAccessToken();
+                const url = `${API_BASE}/certificates/enrollment/${enrollmentId}/download`;
+                const res = await fetch(url, {
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (!res.ok) throw new Error('Erreur lors du téléchargement');
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = `certificat_${cert.moduleTitle.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 50)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+              } catch {
+                setError('Impossible de télécharger le certificat.');
+              } finally {
+                setDownloading(false);
+              }
+            }}
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-facam-blue px-4 text-sm font-medium text-white hover:bg-facam-dark disabled:opacity-50"
           >
             <Download className="mr-2 size-4" />
-            Télécharger le certificat (PDF)
-          </a>
-          <p className="text-xs text-slate-500">
-            La génération PDF peut être ajoutée côté backend (endpoint dédié).
-          </p>
+            {downloading ? 'Téléchargement…' : 'Télécharger le certificat (PDF)'}
+          </Button>
         </CardContent>
       </Card>
       <Link href="/student">

@@ -22,6 +22,20 @@ export class UpdateFormationDto {
   description?: string;
 
   @IsOptional()
+  @IsIn(['interne', 'externe'])
+  moduleType?: 'interne' | 'externe';
+
+  /** Prérequis du cours (éditable par le responsable de module). */
+  @IsOptional()
+  @IsString()
+  prerequisites?: string;
+
+  /** Objectifs d'apprentissage (éditable par le responsable de module). */
+  @IsOptional()
+  @IsString()
+  learningObjectives?: string;
+
+  @IsOptional()
   @IsUrl()
   imageUrl?: string;
 

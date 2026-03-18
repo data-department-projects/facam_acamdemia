@@ -5,6 +5,7 @@
 import { IsString, IsOptional, IsUrl, IsIn, MaxLength } from 'class-validator';
 
 const NIVEAUX = ['debutant', 'intermediaire', 'avance'] as const;
+const MODULE_TYPES = ['interne', 'externe'] as const;
 
 export class CreateFormationDto {
   @IsString()
@@ -18,6 +19,11 @@ export class CreateFormationDto {
 
   @IsString()
   description: string;
+
+  /** interne = employés, externe = étudiants */
+  @IsOptional()
+  @IsIn(MODULE_TYPES, { message: 'Type de module invalide (interne ou externe)' })
+  moduleType?: (typeof MODULE_TYPES)[number];
 
   @IsOptional()
   @IsUrl()

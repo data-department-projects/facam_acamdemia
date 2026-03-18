@@ -22,7 +22,7 @@ model User {
   email        String    @unique
   passwordHash String?   // null si auth externe (SSO)
   fullName     String
-  role         String    // admin | module_manager | student | support
+  role         String    // admin | platform_manager | module_manager | module_manager_internal | module_manager_external | student | employee | support
   avatarUrl    String?
   // Pour les étudiants : première connexion = début du délai de 30 jours
   firstLoginAt DateTime?
@@ -59,6 +59,8 @@ model Module {
   title              String
   subtitle           String?
   description        String    @db.Text
+  prerequisites       String?   @db.Text // Prérequis du cours (éditable par le responsable)
+  learningObjectives String?   @db.Text // Objectifs d'apprentissage (éditable par le responsable)
   imageUrl           String?
   teaserVideoUrl     String?   // Lien YouTube teaser (page aperçu)
   level              String?   // debutant | intermediaire | avance
@@ -66,8 +68,9 @@ model Module {
   authorName         String
   authorBio          String?   @db.Text
   authorAvatarUrl    String?
+  moduleType         String?   // Valeurs en minuscules : interne (employés) | externe (étudiants)
   managerId          String?   @unique // Responsable du module (créé par admin)
-  createdAt          DateTime  @default(now())
+  createdAt         DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   manager            User?     @relation("ModuleManager", fields: [managerId], references: [id], onDelete: SetNull)
