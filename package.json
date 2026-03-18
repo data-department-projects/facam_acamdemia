@@ -15,6 +15,9 @@
     "test:unit": "npx turbo run test:unit",
     "test:e2e": "npx turbo run test:e2e",
     "prepush": "npm run lint && npm run build && npm run test",
+    "prisma:migrate": "npm run prisma:migrate -w api",
+    "prisma:studio": "npm run prisma:studio -w api",
+    "db:seed": "npm run db:seed -w api",
     "clean": "npx turbo run clean --force",
     "prepare": "node -e \"if (process.env.HUSKY === '0' || process.env.CI === '1' || process.env.VERCEL === '1') process.exit(0); require('child_process').execSync('npx husky', { stdio: 'inherit' })\""
   },
