@@ -33,14 +33,18 @@ interface ApiModule {
   finalQuizId?: string | null;
 }
 
+interface ApiCertificate {
+  finalGrade: number;
+}
+
 function QuestionBlock({
   question,
-  selectedIndex,
-  onSelect,
+  selectedIndices,
+  onToggle,
 }: {
   question: ApiQuestion;
-  selectedIndex: number | null;
-  onSelect: (index: number) => void;
+  selectedIndices: number[];
+  onToggle: (index: number) => void;
 }) {
   const options = question.options ?? [];
   return (
@@ -51,11 +55,11 @@ function QuestionBlock({
           <li key={idx}>
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-facam-blue has-[:checked]:bg-facam-blue-tint">
               <input
-                type="radio"
-                name={`q-${question.id}`}
+                type="checkbox"
+                name={`q-${question.id}-${idx}`}
                 value={idx}
-                checked={selectedIndex === idx}
-                onChange={() => onSelect(idx)}
+                checked={selectedIndices.includes(idx)}
+                onChange={() => onToggle(idx)}
                 className="size-4 text-facam-blue"
                 aria-label={opt}
               />
@@ -80,7 +84,7 @@ export default function StudentTestFinalPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
+  const [answers, setAnswers] = useState<number[][]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [result, setResult] = useState<{
     scorePercent: number | null;
@@ -108,11 +112,28 @@ export default function StudentTestFinalPage() {
             const en = arr.find((e) => e.moduleId === moduleId);
             return en?.id ?? null;
           }),
-        ]).then(([q, enId]) => {
+        ]).then(async ([q, enId]) => {
           if (!cancelled) {
             setQuiz(q);
             setEnrollmentId(enId);
-            setAnswers(new Array((q.questions ?? []).length).fill(-1));
+            setAnswers(new Array((q.questions ?? []).length).fill(null).map(() => []));
+          }
+
+          // Si un certificat existe déjà, le test final est déjà validé :
+          // on affiche l'état "réussi" et on évite de repasser le test.
+          if (enId) {
+            try {
+              const cert = await api.get<ApiCertificate>(`/certificates/enrollment/${enId}`);
+              if (cancelled) return;
+              const scorePercent = Math.max(
+                0,
+                Math.min(100, Math.round((cert.finalGrade / 20) * 100))
+              );
+              setResult({ scorePercent, passed: true });
+              setSubmitted(true);
+            } catch {
+              // Pas de certificat : l'étudiant peut passer/repasse le test.
+            }
           }
         });
       })
@@ -127,10 +148,13 @@ export default function StudentTestFinalPage() {
     };
   }, [moduleId]);
 
-  const handleSelect = (questionIndex: number, value: number) => {
+  const handleToggleAnswer = (questionIndex: number, value: number) => {
     setAnswers((prev) => {
       const next = [...prev];
-      next[questionIndex] = value;
+      const current = Array.isArray(next[questionIndex]) ? next[questionIndex] : [];
+      next[questionIndex] = current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value].sort((a, b) => a - b);
       return next;
     });
   };
@@ -145,7 +169,7 @@ export default function StudentTestFinalPage() {
         .post<{ attemptId: string; scorePercent: number | null; passed: boolean | null }>(
           `/quiz/${quiz.id}/submit`,
           {
-            answers: quiz.questions.map((_, i) => answers[i] ?? -1),
+            answers: quiz.questions.map((_, i) => answers[i] ?? []),
             ...(enrollmentId ? { enrollmentId } : {}),
           }
         )
@@ -212,7 +236,7 @@ export default function StudentTestFinalPage() {
                     setSubmitted(false);
                     setResult(null);
                     setCurrentIndex(0);
-                    setAnswers(new Array(quiz?.questions.length ?? 0).fill(-1));
+                    setAnswers(new Array(quiz?.questions.length ?? 0).fill(null).map(() => []));
                   }}
                 >
                   Réessayer
@@ -237,7 +261,7 @@ export default function StudentTestFinalPage() {
   }
 
   const current = quiz.questions[currentIndex];
-  const currentAnswer = answers[currentIndex] ?? -1;
+  const currentAnswers = answers[currentIndex] ?? [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -251,8 +275,8 @@ export default function StudentTestFinalPage() {
         <CardContent className="pt-6">
           <QuestionBlock
             question={current}
-            selectedIndex={currentAnswer === -1 ? null : currentAnswer}
-            onSelect={(idx) => handleSelect(currentIndex, idx)}
+            selectedIndices={currentAnswers}
+            onToggle={(idx) => handleToggleAnswer(currentIndex, idx)}
           />
         </CardContent>
       </Card>
@@ -260,7 +284,7 @@ export default function StudentTestFinalPage() {
         <Button variant="outline" onClick={handlePrev} disabled={currentIndex === 0}>
           Précédent
         </Button>
-        <Button onClick={handleNext} disabled={currentAnswer < 0 || submitting}>
+        <Button onClick={handleNext} disabled={currentAnswers.length === 0 || submitting}>
           {currentIndex === quiz.questions.length - 1 ? 'Terminer le test' : 'Suivant'}
         </Button>
       </div>

@@ -17,6 +17,7 @@ export interface QuizQuestionForm {
   questionText: string;
   options: string[];
   correctIndex: number;
+  correctIndexes: number[];
 }
 
 interface QuizBuilderProps {
@@ -52,6 +53,7 @@ export function QuizBuilder({
       questionText: '',
       options: ['', ''],
       correctIndex: 0,
+      correctIndexes: [0],
     };
     onChange([...questions, newQ]);
     setExpandedId(newQ.id);
@@ -84,12 +86,29 @@ export function QuizBuilder({
     const q = questions.find((qu) => qu.id === questionId);
     if (!q || q.options.length <= 2) return;
     const next = q.options.filter((_, i) => i !== optionIndex);
-    const newCorrect = q.correctIndex >= next.length ? next.length - 1 : q.correctIndex;
-    updateQuestion(questionId, { options: next, correctIndex: newCorrect });
+    const nextCorrectIndexes = q.correctIndexes
+      .filter((idx) => idx !== optionIndex)
+      .map((idx) => (idx > optionIndex ? idx - 1 : idx));
+    const fallbackCorrectIndex = nextCorrectIndexes[0] ?? 0;
+    updateQuestion(questionId, {
+      options: next,
+      correctIndexes: nextCorrectIndexes.length > 0 ? nextCorrectIndexes : [fallbackCorrectIndex],
+      correctIndex: fallbackCorrectIndex,
+    });
   };
 
-  const setCorrect = (questionId: string, index: number) => {
-    updateQuestion(questionId, { correctIndex: index });
+  const toggleCorrect = (questionId: string, index: number) => {
+    const q = questions.find((qu) => qu.id === questionId);
+    if (!q) return;
+    const exists = q.correctIndexes.includes(index);
+    const nextCorrectIndexes = exists
+      ? q.correctIndexes.filter((i) => i !== index)
+      : [...q.correctIndexes, index].sort((a, b) => a - b);
+    const normalized = nextCorrectIndexes.length > 0 ? nextCorrectIndexes : [index];
+    updateQuestion(questionId, {
+      correctIndexes: normalized,
+      correctIndex: normalized[0] ?? index,
+    });
   };
 
   return (
@@ -177,15 +196,15 @@ export function QuizBuilder({
                         Choix de réponse
                       </p>
                       <p className="text-xs text-gray-500 mb-3">
-                        Saisissez chaque proposition, puis <strong>cochez « Bonne réponse »</strong>{' '}
-                        pour le seul choix correct. C&#39;est sur cette indication que
-                        l&#39;étudiant sera noté.
+                        Saisissez chaque proposition, puis cochez une ou plusieurs{' '}
+                        <strong>bonnes réponses</strong>. L&apos;étudiant doit sélectionner toutes
+                        les bonnes réponses (et aucune mauvaise) pour valider la question.
                       </p>
                       {q.options.map((opt, oi) => (
                         <div
                           key={`${q.id}-opt-${oi}`}
                           className={`flex flex-wrap items-center gap-2 mb-2 p-2 rounded-lg border ${
-                            q.correctIndex === oi
+                            q.correctIndexes.includes(oi)
                               ? 'border-green-500 bg-green-50/50'
                               : 'border-gray-200'
                           }`}
@@ -199,12 +218,11 @@ export function QuizBuilder({
                           />
                           <label className="flex items-center gap-2 shrink-0 cursor-pointer">
                             <input
-                              type="radio"
-                              name={`correct-${q.id}`}
-                              checked={q.correctIndex === oi}
-                              onChange={() => setCorrect(q.id, oi)}
+                              type="checkbox"
+                              checked={q.correctIndexes.includes(oi)}
+                              onChange={() => toggleCorrect(q.id, oi)}
                               className="text-green-600 focus:ring-green-500"
-                              aria-label="Bonne réponse"
+                              aria-label="Bonne réponse possible"
                             />
                             <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
                               Bonne réponse

@@ -12,7 +12,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
@@ -109,30 +109,6 @@ const LEARNING_OUTCOMES = [
   },
 ] as const;
 
-const AWARDS = [
-  {
-    image: '/prices/uemoa-logo.png',
-    caption: 'Agrément UEMOA',
-  },
-  {
-    image: '/prices/ECOWAS.png',
-    caption: 'Reconnaissance CEDEAO',
-  },
-  {
-    image: '/prices/number-one-image.png',
-    caption: 'Pionnière de notre secteur industriel.',
-  },
-] as const;
-
-const BRANDS = [
-  { name: 'Blambox', tagline: 'Manufacturing Excellence', logo: '/brands/blambox-logo.png' },
-  { name: 'Kleena', tagline: 'Tissue Products', logo: '/brands/kleena-logo.png' },
-  { name: 'Angel Soft', tagline: 'Softness & Comfort', logo: '/brands/angel-soft-logo.png' },
-  { name: 'Baby Well', tagline: 'Baby Care', logo: '/brands/baby-well-logo.png' },
-  { name: 'Lala', tagline: 'Feminine Hygiene', logo: '/brands/lala-logo.png' },
-  { name: 'Comfort+', tagline: 'Premium Quality', logo: '/brands/comfort-plus-logo.png' },
-];
-
 const FAQ_ITEMS = [
   {
     question: "Qu'est-ce que FACAM ACADEMIA et comment fonctionne la plateforme ?",
@@ -160,25 +136,6 @@ const FAQ_ITEMS = [
       'Des vidéos courtes, des démonstrations, des cas pratiques, des quiz et des ressources téléchargeables, le tout orienté terrain et adapté aux réalités industrielles.',
   },
 ];
-
-const ENTERPRISE_BENEFITS = [
-  {
-    title: 'Rapport qualité prix',
-    description: 'Des produits d’hygiène accessibles, durables et au coût maîtrisé.',
-  },
-  {
-    title: 'Innovation',
-    description: 'Processus modernes, équipements performants et amélioration continue.',
-  },
-  {
-    title: 'Excellence',
-    description: 'Exigence à chaque étape : production, contrôle qualité et conformité.',
-  },
-  {
-    title: 'Leadership',
-    description: 'Capital humain, impact positif durable et écosystème responsable.',
-  },
-] as const;
 
 const LEARNING_STEPS = [
   {
@@ -420,7 +377,6 @@ function SectionShell({
 
 export function HomeLanding() {
   const reduce = useReducedMotion();
-  const featuredBrands = useMemo(() => BRANDS, []);
 
   return (
     <div className="min-h-screen bg-white font-montserrat overflow-x-hidden">
@@ -896,46 +852,6 @@ export function HomeLanding() {
         </div>
       </section>
 
-      {/* Récompenses et reconnaissances — une ligne + deux badges */}
-      <SectionShell className="bg-gray-50 py-20">
-        <div className="rounded-3xl border border-gray-200 bg-white p-8 md:p-12">
-          <Reveal>
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-semibold text-facam-blue">Nos distinctions</p>
-              <h2 className="mt-2 text-3xl font-bold text-facam-dark">Une plateforme reconnue</h2>
-              <p className="mt-3 text-gray-600 leading-relaxed">
-                {APP_NAME} s’appuie sur des partenaires institutionnels et industriels pour garantir
-                la qualité des parcours et la pertinence des compétences visées.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.08}>
-            <div className="mx-auto mt-8 flex max-w-5xl flex-wrap items-center justify-center gap-x-12 gap-y-8 lg:flex-nowrap lg:justify-between">
-              {AWARDS.map((a) => (
-                <motion.div
-                  key={a.image}
-                  whileHover={reduce ? undefined : { y: -2 }}
-                  transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                  className="flex w-56 flex-col items-center gap-2"
-                >
-                  <div className="relative h-14 w-44 md:h-16 md:w-48 lg:h-18 lg:w-52">
-                    <SafeImage
-                      src={a.image}
-                      alt={a.caption}
-                      fill
-                      sizes="(max-width: 768px) 176px, (max-width: 1024px) 192px, 208px"
-                      className="object-contain"
-                    />
-                  </div>
-                  <p className="text-center text-xs font-semibold text-gray-600">{a.caption}</p>
-                </motion.div>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-      </SectionShell>
-
       {/* Programmes — cartes inspirées "valeur ajoutée" + courses */}
       <SectionShell id="programmes" className="bg-white py-20">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
@@ -1002,49 +918,6 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
-      {/* Nos marques / partenaires formation — style portfolio premium */}
-      <SectionShell className="bg-white py-20">
-        <Reveal>
-          <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold text-facam-blue">Notre portefeuille</p>
-            <h2 className="mt-2 text-3xl font-bold text-facam-dark">
-              Nos marques & partenaires de confiance
-            </h2>
-            <p className="mt-3 text-gray-600">
-              Un écosystème de marques engagées pour des produits fiables, performants et adaptés à
-              différents besoins du marché.
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-          {featuredBrands.map((brand, idx) => (
-            <Reveal key={brand.name} delay={0.05 * idx}>
-              <motion.div
-                whileHover={
-                  reduce ? undefined : { y: -6, boxShadow: '0 18px 40px rgba(0,0,0,0.12)' }
-                }
-                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                className="group flex h-full flex-col items-center justify-between overflow-hidden rounded-3xl border border-gray-200 bg-white px-4 py-6 text-center shadow-sm"
-              >
-                <div className="relative mb-4 flex h-16 w-24 items-center justify-center rounded-2xl border border-gray-100 bg-white">
-                  <SafeImage
-                    src={brand.logo}
-                    alt={brand.name}
-                    fill
-                    sizes="96px"
-                    className="object-contain p-2"
-                  />
-                </div>
-
-                <p className="text-sm font-bold text-facam-dark">{brand.name}</p>
-                <p className="mt-1 text-xs text-gray-500">{brand.tagline}</p>
-              </motion.div>
-            </Reveal>
-          ))}
-        </div>
-      </SectionShell>
-
       {/* Témoignages — avis de nos apprenants (fond clair, cartes premium) */}
       <SectionShell className="bg-gray-50 py-20">
         <Reveal>
@@ -1088,64 +961,6 @@ export function HomeLanding() {
               </motion.div>
             </Reveal>
           ))}
-        </div>
-      </SectionShell>
-
-      {/* Espace entreprise */}
-      <SectionShell id="entreprises" className="bg-gray-50 py-20">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
-          <Reveal className="lg:col-span-6">
-            <p className="text-sm font-semibold text-facam-blue">Espace entreprise</p>
-            <h2 className="mt-2 text-3xl font-bold text-facam-dark">
-              FACAM STAIRWAY : industrie, savoir-faire et équipements modernes
-            </h2>
-            <p className="mt-3 text-gray-600 leading-relaxed">
-              FACAM STAIRWAY s’appuie sur des machines de dernière génération et des standards
-              industriels exigeants pour produire des solutions d’hygiène et d’emballage adaptées au
-              marché. Nos valeurs guident chaque décision.
-            </p>
-
-            <div className="mt-6 space-y-3">
-              {ENTERPRISE_BENEFITS.map((benefit) => (
-                <div key={benefit.title} className="flex items-start gap-3 text-sm text-gray-700">
-                  <CheckCircle2 className="mt-0.5 size-5 text-facam-blue" aria-hidden />
-                  <div>
-                    <p className="font-semibold text-facam-dark">{benefit.title}</p>
-                    <p className="text-gray-600">{benefit.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/login">
-                <Button variant="primary">
-                  Commencer le parcours <ArrowRight />
-                </Button>
-              </Link>
-              <Link href="#footer">
-                <Button variant="outline" className="border-facam-blue/30 text-facam-blue">
-                  Visite & informations pratiques
-                </Button>
-              </Link>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.12} className="lg:col-span-6">
-            <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-              {/* Image de présentation de l'entreprise — à remplacer par un visuel fourni */}
-              <div className="relative aspect-[16/9] w-full bg-facam-blue-tint">
-                <SafeImage
-                  src="/F10.jpg"
-                  alt="Présentation de l’entreprise et de ses installations"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 560px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/0 to-transparent" />
-              </div>
-            </div>
-          </Reveal>
         </div>
       </SectionShell>
 

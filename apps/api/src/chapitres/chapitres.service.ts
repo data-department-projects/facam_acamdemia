@@ -77,7 +77,12 @@ export class ChapitresService {
           quizId: quiz.id,
           questionText: q.questionText,
           options: q.options as unknown as object,
-          correctIndex: q.correctIndex,
+          correctIndex:
+            (q.correctIndexes && q.correctIndexes.length > 0
+              ? q.correctIndexes[0]
+              : q.correctIndex) ?? 0,
+          correctIndexes:
+            q.correctIndexes && q.correctIndexes.length > 0 ? q.correctIndexes : [q.correctIndex],
           order: i + 1,
         })),
       });
@@ -124,7 +129,6 @@ export class ChapitresService {
     });
     return item;
   }
-
   async trouverParModule(moduleId: string, userId: string, role: string): Promise<unknown[]> {
     const lectureSeulement = role === 'student';
     await this.verifierDroitsModule(moduleId, userId, role, lectureSeulement);

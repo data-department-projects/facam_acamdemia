@@ -3,7 +3,7 @@
  * answers : tableau d'index de réponses par ordre de question (0-based).
  */
 
-import { IsArray, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class SubmitAttemptDto {
   /** ID de l'inscription (pour quiz final, optionnel pour quiz chapitre). */
@@ -11,8 +11,12 @@ export class SubmitAttemptDto {
   @IsString()
   enrollmentId?: string;
 
-  /** Réponses : tableau d'index (0-based) pour chaque question, dans l'ordre. */
+  /**
+   * Réponses par question, dans l'ordre.
+   * Compatibilité :
+   * - ancien format : number (une seule réponse)
+   * - nouveau format : number[] (plusieurs réponses)
+   */
   @IsArray()
-  @IsNumber({}, { each: true })
-  answers: number[];
+  answers: unknown[];
 }
