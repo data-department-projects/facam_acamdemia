@@ -4,7 +4,16 @@
  * Soit moduleId (legacy), soit courseId pour rattacher au cours.
  */
 
-import { IsString, IsInt, IsOptional, IsArray, ValidateNested, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsInt,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  Min,
+  Max,
+  ArrayNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QuizQuestionDto {
@@ -19,6 +28,14 @@ export class QuizQuestionDto {
   @Min(0)
   @Max(10)
   correctIndex: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(10, { each: true })
+  correctIndexes?: number[];
 }
 
 export class CreateChapitreDto {

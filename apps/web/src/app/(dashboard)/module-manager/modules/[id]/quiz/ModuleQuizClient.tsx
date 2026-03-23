@@ -77,6 +77,7 @@ export function ModuleQuizClient({
           questionText: string;
           options: string[];
           correctIndex: number;
+          correctIndexes?: number[];
           order: number;
         }[];
       } | null>(`/quiz/final?moduleId=${encodeURIComponent(moduleId)}`);
@@ -111,6 +112,7 @@ export function ModuleQuizClient({
           questionText: string;
           options: string[];
           correctIndex: number;
+          correctIndexes?: number[];
           order: number;
         }[];
       } | null>(`/quiz/final?moduleId=${encodeURIComponent(moduleId)}`);
@@ -121,6 +123,10 @@ export function ModuleQuizClient({
             questionText: q.questionText,
             options: q.options,
             correctIndex: q.correctIndex,
+            correctIndexes:
+              Array.isArray(q.correctIndexes) && q.correctIndexes.length > 0
+                ? q.correctIndexes
+                : [q.correctIndex],
           }))
         );
         setMinScoreToPass(data.minScoreToPass);
@@ -144,6 +150,7 @@ export function ModuleQuizClient({
             questionText: q.questionText,
             options: q.options,
             correctIndex: q.correctIndex,
+            correctIndexes: q.correctIndexes,
           })),
       };
       await api.put('/quiz/final', payload);
@@ -217,7 +224,7 @@ export function ModuleQuizClient({
         <h1 className="text-xl font-bold text-facam-dark">Quiz final du module : {mod.title}</h1>
         <p className="mt-1 text-sm text-gray-600">
           Cette page est dédiée au <strong>quiz final</strong> du module. Créez les questions,
-          définissez les réponses possibles et la bonne réponse pour chaque question.
+          définissez les réponses possibles et la ou les bonnes réponses pour chaque question.
           L&apos;étudiant devra valider ce quiz (score minimum requis) avant de pouvoir obtenir son
           certificat téléchargeable. Les quiz de chapitre (parcours) se gèrent dans « Cours &
           Contenu » lors de l&apos;ajout d&apos;un chapitre.
@@ -269,9 +276,9 @@ export function ModuleQuizClient({
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Définissez les questions du quiz final, les choix possibles et la bonne réponse pour
-            chaque question. L&apos;étudiant doit obtenir le score minimum pour valider le module et
-            pouvoir télécharger son certificat.
+            Définissez les questions du quiz final, les choix possibles et la ou les bonnes réponses
+            pour chaque question. L&apos;étudiant doit obtenir le score minimum pour valider le
+            module et pouvoir télécharger son certificat.
           </p>
           {finalQuizError && (
             <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{finalQuizError}</p>

@@ -1,7 +1,7 @@
 /**
  * Cours et contenus — Structure Module → Chapitres (sans niveau Cours).
  * Le responsable voit son module, peut modifier image et prérequis, puis gérer les chapitres (créer, modifier, supprimer).
- * Chaque chapitre peut avoir une vidéo et un quiz avec bonne réponse pour noter l'étudiant.
+ * Chaque chapitre peut avoir une vidéo et un quiz avec une ou plusieurs bonnes réponses.
  */
 
 'use client';
@@ -197,6 +197,7 @@ export default function ModuleManagerModulesPage() {
                   questionText: q.questionText,
                   options: q.options,
                   correctIndex: q.correctIndex,
+                  correctIndexes: q.correctIndexes,
                 }))
             : undefined,
         };
@@ -505,7 +506,7 @@ export default function ModuleManagerModulesPage() {
           {chapterModal === 'new' && (
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
               <p className="mb-2 text-sm font-medium text-facam-dark">
-                Quiz de fin de chapitre (définir la bonne réponse pour noter l&apos;étudiant)
+                Quiz de fin de chapitre (définir une ou plusieurs bonnes réponses)
               </p>
               <p className="mb-3 text-xs text-gray-500">
                 Score minimum requis pour passer au chapitre suivant.

@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { FileQuestion, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -18,11 +18,14 @@ interface ChapterVideoAndQuizProps {
   description?: string;
   moduleId: string;
   chapterId: string;
+  chapterOrder: number;
   enrollmentId: string | null;
   videoItemId: string | null;
   quizItemId: string | null;
   quizId: string | null;
   nextHref: string;
+  initialVideoCompleted?: boolean;
+  initialQuizCompleted?: boolean;
 }
 
 export function ChapterVideoAndQuiz({
@@ -31,14 +34,117 @@ export function ChapterVideoAndQuiz({
   description,
   moduleId,
   chapterId,
+  chapterOrder,
   enrollmentId,
   videoItemId,
   quizItemId,
   quizId,
   nextHref,
+  initialVideoCompleted = false,
+  initialQuizCompleted = false,
 }: ChapterVideoAndQuizProps) {
-  const [videoMarkedComplete, setVideoMarkedComplete] = useState(false);
-  const quizUnlocked = videoMarkedComplete && quizId;
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [videoMarkedComplete, setVideoMarkedComplete] = useState(initialVideoCompleted);
+  const [savingProgress, setSavingProgress] = useState(false);
+  const iframeId = useMemo(() => `chapter-video-${chapterId}`, [chapterId]);
+  const quizUnlocked =
+    (initialQuizCompleted || (!!embedUrl ? videoMarkedComplete : true)) && quizId;
+
+  const embedUrlWithApi = useMemo(() => {
+    if (!embedUrl) return null;
+    try {
+      const url = new URL(embedUrl);
+      url.searchParams.set('enablejsapi', '1');
+      if (typeof window !== 'undefined') {
+        url.searchParams.set('origin', window.location.origin);
+      }
+      return url.toString();
+    } catch {
+      return embedUrl;
+    }
+  }, [embedUrl]);
+
+  useEffect(() => {
+    if (!embedUrlWithApi) return;
+    if (!iframeRef.current) return;
+
+    let cancelled = false;
+    let player: { destroy?: () => void } | null = null;
+
+    const markVideoComplete = async () => {
+      if (cancelled || videoMarkedComplete) return;
+      setVideoMarkedComplete(true);
+      if (!enrollmentId) return;
+      setSavingProgress(true);
+      try {
+        if (videoItemId) {
+          await api.post(`/enrollments/${enrollmentId}/complete-item`, {
+            chapterItemId: videoItemId,
+          });
+        }
+        await api.patch(`/enrollments/${enrollmentId}/progression`, {
+          lastViewedChapterId: chapterId,
+          lastViewedItemId: videoItemId ?? undefined,
+        });
+      } catch {
+        // best-effort: l'UX continue même si la sauvegarde échoue
+      } finally {
+        if (!cancelled) setSavingProgress(false);
+      }
+    };
+
+    const setupPlayer = () => {
+      const win = window as Window & {
+        YT?: {
+          PlayerState?: { ENDED: number };
+          Player?: new (
+            elementId: string,
+            config: { events?: { onStateChange?: (event: { data: number }) => void } }
+          ) => { destroy?: () => void };
+        };
+      };
+
+      if (!win.YT?.Player || !win.YT?.PlayerState) return;
+      player = new win.YT.Player(iframeId, {
+        events: {
+          onStateChange: (event) => {
+            if (event.data === win.YT?.PlayerState?.ENDED) {
+              void markVideoComplete();
+            }
+          },
+        },
+      });
+    };
+
+    const ensureYoutubeApi = () => {
+      const win = window as Window & {
+        YT?: unknown;
+        onYouTubeIframeAPIReady?: () => void;
+      };
+      if (win.YT) {
+        setupPlayer();
+        return;
+      }
+      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+      if (!existing) {
+        const script = document.createElement('script');
+        script.src = 'https://www.youtube.com/iframe_api';
+        document.body.appendChild(script);
+      }
+      const previousReady = win.onYouTubeIframeAPIReady;
+      win.onYouTubeIframeAPIReady = () => {
+        previousReady?.();
+        setupPlayer();
+      };
+    };
+
+    ensureYoutubeApi();
+
+    return () => {
+      cancelled = true;
+      player?.destroy?.();
+    };
+  }, [embedUrlWithApi, iframeId, enrollmentId, chapterId, videoItemId, videoMarkedComplete]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
@@ -48,9 +154,11 @@ export function ChapterVideoAndQuiz({
 
       {/* Lecteur vidéo */}
       <div className="aspect-video w-full bg-slate-900 mt-4">
-        {embedUrl ? (
+        {embedUrlWithApi ? (
           <iframe
-            src={embedUrl}
+            ref={iframeRef}
+            id={iframeId}
+            src={embedUrlWithApi}
             title={chapterTitle}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -70,40 +178,20 @@ export function ChapterVideoAndQuiz({
         </div>
       )}
 
-      {/* Déblocage du quiz : bouton "J'ai terminé la vidéo" */}
+      {/* Déblocage du quiz : automatique à la fin de la vidéo */}
       <div className="px-4 py-4 bg-gray-50 border-t border-gray-100">
-        {!videoMarkedComplete ? (
-          <Button
-            variant="accent"
-            className="w-full sm:w-auto"
-            onClick={async () => {
-              setVideoMarkedComplete(true);
-              if (!enrollmentId) return;
-              try {
-                if (videoItemId) {
-                  await api.post(`/enrollments/${enrollmentId}/complete-item`, {
-                    chapterItemId: videoItemId,
-                  });
-                }
-                await api.patch(`/enrollments/${enrollmentId}/progression`, {
-                  lastViewedChapterId: chapterId,
-                  lastViewedItemId: videoItemId ?? undefined,
-                });
-              } catch {
-                // best-effort: ne pas bloquer l'UX si la sauvegarde échoue
-              }
-            }}
-          >
-            J&apos;ai terminé la vidéo — débloquer le quiz
-          </Button>
-        ) : quizUnlocked ? (
+        {!quizUnlocked ? (
+          <p className="text-sm text-gray-700">
+            Le quiz se débloquera automatiquement à la fin de la vidéo.
+          </p>
+        ) : (
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-2 text-sm font-medium text-green-700">
               <CheckCircle className="size-4 text-facam-yellow" />
-              Quiz débloqué
+              Quiz débloqué{savingProgress ? ' (sauvegarde...)' : ''}
             </span>
             <Link
-              href={`/student/modules/${moduleId}/quiz?quizId=${quizId}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapterId)}&quizItemId=${encodeURIComponent(quizItemId ?? '')}`}
+              href={`/student/modules/${moduleId}/quiz?quizId=${quizId}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapterId)}&chapterOrder=${chapterOrder}&quizItemId=${encodeURIComponent(quizItemId ?? '')}`}
             >
               <Button variant="accent" size="md">
                 <FileQuestion className="mr-2 size-4" />
@@ -111,7 +199,7 @@ export function ChapterVideoAndQuiz({
               </Button>
             </Link>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

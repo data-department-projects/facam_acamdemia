@@ -79,72 +79,18 @@ export default function MyLearningPage() {
       {/* Contenu */}
       <div className="bg-white min-h-[60vh] py-8 md:py-12">
         <div className="container mx-auto px-4 md:px-6">
-          {/* Carte "Commencer une nouvelle série" */}
-          <div className="mb-8 p-6 bg-facam-blue-tint/30 border border-gray-200 rounded-lg">
-            <h2 className="text-xl font-bold text-facam-dark font-montserrat mb-2">
-              Commencer une nouvelle série
-            </h2>
-            <p className="text-gray-600 text-sm mb-4">
-              Nous savons que vous pouvez le faire. Poursuivez vos objectifs !
-            </p>
-            <div className="flex flex-wrap gap-6 text-sm">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-facam-dark">0</p>
-                <p className="text-xs text-gray-500 uppercase">série en cours</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-facam-dark">1/30</p>
-                <p className="text-xs text-gray-500 uppercase">min de cours</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-facam-dark">4/1</p>
-                <p className="text-xs text-gray-500 uppercase">visité(s)</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Filtres + Tri */}
-          <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
-            <div className="flex flex-wrap gap-2 md:gap-4">
-              <select
-                className="border border-gray-300 rounded px-4 py-2.5 text-sm font-medium text-facam-dark bg-white hover:bg-gray-50 focus:outline-none focus:border-facam-blue"
-                aria-label="Catégories"
-              >
-                <option>Catégories</option>
-              </select>
-              <select
-                className="border border-gray-300 rounded px-4 py-2.5 text-sm font-medium text-facam-dark bg-white hover:bg-gray-50 focus:outline-none focus:border-facam-blue"
-                aria-label="Progrès"
-              >
-                <option>Progrès</option>
-              </select>
-              <select
-                className="border border-gray-300 rounded px-4 py-2.5 text-sm font-medium text-facam-dark bg-white hover:bg-gray-50 focus:outline-none focus:border-facam-blue"
-                aria-label="Format"
-              >
-                <option>Format</option>
-              </select>
-              <button
-                type="button"
-                className="border border-gray-300 rounded px-4 py-2.5 text-sm font-medium text-facam-dark bg-white hover:bg-gray-50"
-              >
-                Réinitialiser
-              </button>
-            </div>
-            <div className="relative">
+          {/* Recherche uniquement */}
+          <div className="mb-6">
+            <div className="relative ml-auto w-full md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-500" />
               <input
                 type="search"
                 placeholder="Rechercher mes cours"
-                className="border border-gray-300 pl-9 pr-4 py-2.5 w-48 md:w-64 text-sm focus:outline-none focus:border-facam-blue rounded"
+                className="w-full rounded border border-gray-300 py-2.5 pl-9 pr-4 text-sm focus:border-facam-blue focus:outline-none"
                 aria-label="Rechercher mes cours"
               />
             </div>
           </div>
-
-          <p className="text-sm text-gray-500 mb-4">
-            Tri : <span className="font-medium text-facam-dark">Récemment consultés</span>
-          </p>
 
           {/* Grille de cours */}
           {loading ? (

@@ -41,6 +41,7 @@ interface ApiModule {
   id: string;
   title: string;
   progress?: number;
+  completedAt?: string | null;
   lastViewedChapterId?: string | null;
   lastViewedItemId?: string | null;
   chapters?: ApiChapter[];
@@ -147,11 +148,16 @@ export function ChapterPageClient({
     chapter?.items?.find((i) => i.type === 'quiz' && (i.quizId ?? null) === quizId)?.id ?? null;
 
   const completedChapterOrders = useMemo(() => {
-    // Un chapitre est "complété" si tous ses items requis (vidéo + quiz) sont complétés.
-    // Les documents sont considérés comme optionnels dans ce calcul.
+    // Pour autoriser la révision et garder un parcours clair :
+    // - si un quiz existe dans le chapitre, sa validation suffit pour considérer le chapitre complété
+    // - sinon, on se base sur les vidéos (documents toujours optionnels)
     const result = new Set<number>();
     for (const ch of chapters) {
-      const required = (ch.items ?? []).filter((it) => it.type === 'video' || it.type === 'quiz');
+      const quizItems = (ch.items ?? []).filter((it) => it.type === 'quiz');
+      const required =
+        quizItems.length > 0
+          ? quizItems
+          : (ch.items ?? []).filter((it) => it.type === 'video' || it.type === 'quiz');
       if (required.length === 0) continue;
       const ok = required.every((it) => completedItemIds.has(it.id));
       if (ok) result.add(ch.order);
@@ -201,7 +207,7 @@ export function ChapterPageClient({
                       ch.order < chapters.length
                         ? `/student/modules/${moduleId}/chapitre/${ch.order + 1}`
                         : `/student/modules/${moduleId}/test-final`;
-                    return `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(next)}&chapterId=${encodeURIComponent(ch.id)}&quizItemId=${encodeURIComponent(quizItemId)}`;
+                    return `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(next)}&chapterId=${encodeURIComponent(ch.id)}&chapterOrder=${ch.order}&quizItemId=${encodeURIComponent(quizItemId)}`;
                   })(),
                 },
               ]
@@ -217,17 +223,40 @@ export function ChapterPageClient({
     chapterOrder < chapters.length
       ? `/student/modules/${moduleId}/chapitre/${chapterOrder + 1}`
       : `/student/modules/${moduleId}/test-final`;
+  const chapterQuizCompleted = quizItemId ? completedItemIds.has(quizItemId) : true;
+  const hasNextChapter = chapterOrder < chapters.length;
+  const canAccessNext = !hasNextChapter || chapterQuizCompleted;
 
   // Si l'utilisateur s'était arrêté sur le quiz (échec), on le renvoie directement au quiz
   useEffect(() => {
     if (!module_ || !chapter) return;
     if (!module_.lastViewedItemId) return;
     if (!quizId || !quizItemId) return;
+    // Si le quiz est déjà validé (item complété), on ne force pas un nouveau passage.
+    if (completedItemIds.has(quizItemId)) return;
     if (module_.lastViewedItemId !== quizItemId) return;
     router.replace(
-      `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapter.id)}&quizItemId=${encodeURIComponent(quizItemId)}`
+      `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapter.id)}&chapterOrder=${chapterOrder}&quizItemId=${encodeURIComponent(quizItemId)}`
     );
-  }, [module_, chapter, quizId, quizItemId, moduleId, nextHref, router]);
+  }, [
+    module_,
+    chapter,
+    quizId,
+    quizItemId,
+    moduleId,
+    nextHref,
+    router,
+    completedItemIds,
+    chapterOrder,
+  ]);
+
+  // Blocage navigation directe : impossible d'ouvrir un chapitre si le précédent n'est pas validé.
+  useEffect(() => {
+    if (!module_ || chapterOrder <= 1) return;
+    if (!completedChapterOrders.has(chapterOrder - 1)) {
+      router.replace(`/student/modules/${moduleId}/chapitre/${chapterOrder - 1}`);
+    }
+  }, [module_, chapterOrder, completedChapterOrders, moduleId, router]);
 
   if (loading) {
     return (
@@ -269,11 +298,14 @@ export function ChapterPageClient({
               description={undefined}
               moduleId={moduleId}
               chapterId={chapter.id}
+              chapterOrder={chapterOrder}
               enrollmentId={enrollmentId}
               videoItemId={videoItem?.id ?? null}
               quizItemId={quizItemId}
               quizId={quizId}
               nextHref={nextHref}
+              initialVideoCompleted={videoItem?.id ? completedItemIds.has(videoItem.id) : false}
+              initialQuizCompleted={quizItemId ? completedItemIds.has(quizItemId) : false}
             />
 
             <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -324,11 +356,24 @@ export function ChapterPageClient({
               >
                 ← Précédent
               </Link>
-              <Link href={nextHref}>
-                <Button variant="accent" size="lg">
-                  {chapterOrder < chapters.length ? 'Chapitre suivant →' : 'Passer au quiz final →'}
-                </Button>
-              </Link>
+              {canAccessNext ? (
+                <Link href={nextHref}>
+                  <Button variant="accent" size="lg">
+                    {chapterOrder < chapters.length
+                      ? 'Chapitre suivant →'
+                      : 'Passer au quiz final →'}
+                  </Button>
+                </Link>
+              ) : (
+                <div className="text-right">
+                  <Button variant="accent" size="lg" disabled>
+                    Chapitre suivant verrouillé
+                  </Button>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Réussissez le quiz du chapitre pour continuer.
+                  </p>
+                </div>
+              )}
             </div>
 
             <ModuleCommentsSection moduleId={moduleId} />
