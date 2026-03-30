@@ -4,7 +4,7 @@ Plateforme e-learning dédiée aux jeunes diplômés pour les formations industr
 
 ## Stack
 
-- **Monorepo** : npm workspaces + Turborepo
+- **Monorepo** : npm workspaces + Turborep
 - **Frontend** : Next.js 15 (App Router), React 19, Tailwind CSS
 - **Backend** : Nest.js, Prisma (Supabase)
 - **CI/CD** : GitHub Actions ; déploiement Vercel (web) + Railway (API)
