@@ -377,7 +377,6 @@ function SectionShell({
 
 export function HomeLanding() {
   const reduce = useReducedMotion();
-
   return (
     <div className="min-h-screen bg-white font-montserrat overflow-x-hidden">
       <ScrollProgress />
@@ -401,9 +400,9 @@ export function HomeLanding() {
         </div>
 
         <div className="container-custom relative z-10 py-24 sm:py-28 lg:py-32">
-          <div className="max-w-3xl">
+          <div className="mx-auto max-w-3xl text-center">
             <Reveal>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80">
+              <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80">
                 <span className="h-1.5 w-1.5 rounded-full bg-facam-yellow" aria-hidden />
                 <span>FACAM ACADEMIA · Plateforme e-learning industrie</span>
               </div>
@@ -418,7 +417,7 @@ export function HomeLanding() {
             </Reveal>
 
             <Reveal delay={0.14}>
-              <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/75 sm:text-base">
+              <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-white/75 sm:text-base">
                 FACAM ACADEMIA est une plateforme e-learning dédiée aux jeunes diplômés pour
                 approfondir leurs compétences dans l’industrie des produits d’hygiène et
                 d’emballage. Apprenez en ligne, validez votre certificat, puis passez au terrain
@@ -427,10 +426,11 @@ export function HomeLanding() {
             </Reveal>
 
             <Reveal delay={0.2}>
-              <div className="mt-10 flex flex-wrap items-center gap-3">
+              <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/login" className="inline-flex">
                   <Button
                     size="lg"
+                    variant="accent"
                     className="rounded-full bg-facam-yellow px-8 text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0"
                   >
                     Connexion <ArrowRight />

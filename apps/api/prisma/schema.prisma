@@ -24,6 +24,7 @@ model User {
   managedModule  Module?          @relation("ModuleManager")
   quizAttempts   QuizAttempt[]
   reviews        Review[]
+  supportFeedbacks SupportFeedback[]
 }
 
 model PasswordResetOtp {
@@ -232,4 +233,22 @@ model Discussion {
   parent    Discussion?  @relation("DiscussionReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Discussion[] @relation("DiscussionReplies")
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SupportFeedback {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String
+  category     String
+  priority     String
+  message      String
+  contactEmail String?
+  status       String   @default("new")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([status])
+  @@index([category])
 }

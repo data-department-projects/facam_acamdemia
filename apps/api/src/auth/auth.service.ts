@@ -2,13 +2,27 @@
  * Service d'authentification : connexion, mise à jour première connexion.
  */
 
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { AppStorageService } from '../storage/app-storage.service';
 import type { LoginDto } from './dto/login.dto';
 import type { UtilisateurPayload } from '../core/decorators/current-user.decorator';
+
+/** Fichier mémoire Multer (évite la dépendance stricte à @types/express/multer). */
+export interface FichierAvatarUpload {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
 
 const OTP_EXPIRATION_MINUTES = 3;
 const SALT_ROUNDS = 10;
@@ -21,6 +35,7 @@ export interface ReponseConnexion {
     fullName: string;
     role: string;
     firstLoginAt: string | null;
+    avatarUrl: string | null;
   };
 }
 
@@ -29,7 +44,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly appStorage: AppStorageService
   ) {}
 
   /**
@@ -56,7 +72,14 @@ export class AuthService {
     }
     const utilisateurAvecDate = await this.prisma.user.findUnique({
       where: { id: user.id },
-      select: { id: true, email: true, fullName: true, role: true, firstLoginAt: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        firstLoginAt: true,
+        avatarUrl: true,
+      },
     });
     if (!utilisateurAvecDate) {
       throw new UnauthorizedException('Erreur lors de la récupération du profil');
@@ -76,6 +99,7 @@ export class AuthService {
         fullName: utilisateurAvecDate.fullName,
         role: utilisateurAvecDate.role,
         firstLoginAt: utilisateurAvecDate.firstLoginAt?.toISOString() ?? null,
+        avatarUrl: utilisateurAvecDate.avatarUrl ?? null,
       },
     };
   }
@@ -89,10 +113,18 @@ export class AuthService {
     fullName: string;
     role: string;
     firstLoginAt: string | null;
+    avatarUrl: string | null;
   }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, fullName: true, role: true, firstLoginAt: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        firstLoginAt: true,
+        avatarUrl: true,
+      },
     });
     if (!user) {
       throw new UnauthorizedException('Utilisateur introuvable');
@@ -103,7 +135,54 @@ export class AuthService {
       fullName: user.fullName,
       role: user.role,
       firstLoginAt: user.firstLoginAt?.toISOString() ?? null,
+      avatarUrl: user.avatarUrl ?? null,
     };
+  }
+
+  /**
+   * Enregistre un nouvel avatar : validation MIME/taille (multer), upload Storage,
+   * mise à jour Prisma, puis suppression best-effort de l’ancien fichier.
+   */
+  async telechargerAvatar(
+    userId: string,
+    file: FichierAvatarUpload
+  ): Promise<{ avatarUrl: string }> {
+    this.appStorage.assertReady();
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier image vide ou invalide.');
+    }
+    const ext = this.appStorage.extForProfileMime(file.mimetype);
+    if (!ext) {
+      throw new BadRequestException('Format non accepté : JPG, PNG ou WebP uniquement.');
+    }
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, avatarUrl: true },
+    });
+    if (!existing) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+    const previousUrl = existing.avatarUrl;
+    let publicUrl: string;
+    try {
+      const uploaded = await this.appStorage.uploadUserProfileImage(
+        userId,
+        file.buffer,
+        file.mimetype
+      );
+      publicUrl = uploaded.publicUrl;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Échec du téléversement';
+      throw new InternalServerErrorException(msg);
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: publicUrl },
+    });
+    if (previousUrl) {
+      await this.appStorage.removeUserProfileImageByUrlIfOwned(previousUrl, userId);
+    }
+    return { avatarUrl: publicUrl };
   }
 
   /**

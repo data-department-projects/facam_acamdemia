@@ -9,6 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, LogOut, Menu, User } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { UserAvatar } from '@/components/account/UserAvatar';
 import { cn } from '@/lib/utils';
 
 const LOGO_SRC = '/Facam%20Academia-02-02%202.png';
@@ -99,7 +100,7 @@ function getHeaderTheme(variant: HeaderProps['variant']) {
 export interface HeaderProps {
   onMenuClick?: () => void;
   showSidebarToggle?: boolean;
-  user?: { fullName: string; email: string; role: string } | null;
+  user?: { fullName: string; email: string; role: string; avatarUrl?: string | null } | null;
   /** Lien vers la page profil/compte (ex: /admin/compte, /module-manager/compte) */
   compteHref?: string;
   /**
@@ -172,11 +173,6 @@ export function Header(props: Readonly<HeaderProps>) {
           className={cn('h-9 w-auto object-contain', theme.logo)}
           priority
         />
-        {isMarketing && (
-          <span className={cn('hidden text-sm font-extrabold sm:inline-block', theme.brandName)}>
-            FACAM ACADEMIA
-          </span>
-        )}
       </Link>
 
       {isMarketing && (navLinks?.length ?? 0) > 0 && (
@@ -211,12 +207,12 @@ export function Header(props: Readonly<HeaderProps>) {
               <Link
                 href={compteHref}
                 className={cn(
-                  'rounded-full p-2 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
+                  'inline-flex items-center justify-center rounded-full leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
                   theme.accountButton
                 )}
                 aria-label="Mon compte"
               >
-                <User className="size-4" />
+                <UserAvatar fullName={user.fullName} avatarUrl={user.avatarUrl} size="sm" />
               </Link>
             ) : (
               <span className={cn('rounded-full p-2', theme.accountIcon)} aria-hidden>
@@ -253,7 +249,7 @@ export function Header(props: Readonly<HeaderProps>) {
                   'rounded-full px-5 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0',
                   theme.loginPill
                 )}
-                variant={isMarketing ? undefined : 'accent'}
+                variant="accent"
               >
                 Connexion <ArrowRight />
               </Button>

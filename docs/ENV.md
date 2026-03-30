@@ -64,7 +64,7 @@ Référence : `DEPLOYMENT.md` § 2.3 et `.env.example` à la racine.
 
 ### 3.4 Optionnel (tous environnements)
 
-- **Supabase** : `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (si utilisé côté API).
+- **Supabase** : `SUPABASE_URL` ou `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (bucket `app-storage` : profils, images modules, documents cours — voir `supabase/storage-app-storage.sql`), `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client si besoin).
 - **Resend** : `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_LOGO_URL` (emails / OTP).
 - **Upstash Redis** : `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 - **Microsoft Graph / SharePoint** : `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `SHAREPOINT_SITE_URL`.

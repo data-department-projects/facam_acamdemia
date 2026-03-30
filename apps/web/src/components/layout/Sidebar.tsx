@@ -43,6 +43,7 @@ const adminNav = [
 
 const supportNav = [
   { href: '/support', label: 'Monitoring', icon: AlertCircle },
+  { href: '/support/feedbacks', label: 'Feedback etudiant', icon: Users },
   { href: '/support/logs', label: 'Logs', icon: BarChart3 },
 ];
 

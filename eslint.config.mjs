@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import parser from '@typescript-eslint/parser';
 import plugin from '@typescript-eslint/eslint-plugin';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
+import nextPlugin from '@next/eslint-plugin-next';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -113,6 +114,23 @@ export default [
       ...plugin.configs.recommended.rules,
       ...pluginReactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    },
+  },
+  /**
+   * `apps/web` : charge le plugin `@next/next` pour le lint à la racine (lint-staged au commit).
+   * Sans cela, un `eslint-disable-next-line @next/next/no-img-element` provoque
+   * « Definition for rule ... was not found ».
+   */
+  {
+    files: ['apps/web/**/*.{tsx,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      // Monorepo : la règle résout `pages/` depuis la racine du repo, pas `apps/web`.
+      '@next/next/no-html-link-for-pages': 'off',
     },
   },
 ];

@@ -80,7 +80,14 @@ export default function StudentMyModulesPage() {
                     {mod.chaptersCount ?? 0} ch.
                   </span>
                 </div>
-                <Link href={`/student/modules/${mod.id}`} className="mt-3 block">
+                <Link
+                  href={
+                    mod.progress === 100
+                      ? `/student/modules/${mod.id}`
+                      : `/student/modules/${mod.id}/chapitre/1`
+                  }
+                  className="mt-3 block"
+                >
                   <Button variant="outline" size="sm" className="w-full">
                     {mod.progress === 100 ? 'Voir certificat' : 'Reprendre'}
                   </Button>

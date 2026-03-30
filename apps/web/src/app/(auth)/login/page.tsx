@@ -27,6 +27,7 @@ interface LoginResponse {
     fullName: string;
     role: string;
     firstLoginAt: string | null;
+    avatarUrl?: string | null;
   };
 }
 
@@ -57,6 +58,7 @@ export default function LoginPage() {
           fullName: res.user.fullName,
           role: res.user.role as UserRole,
           firstLoginAt: res.user.firstLoginAt,
+          avatarUrl: res.user.avatarUrl ?? undefined,
         },
         res.accessToken
       );
@@ -107,7 +109,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-facam-dark">Bon retour !</h2>
+        <h2 className="text-3xl font-bold text-facam-dark">Connectez - Vous</h2>
         <p className="mt-2 text-gray-600">Connectez-vous pour continuer votre apprentissage.</p>
       </div>
 
