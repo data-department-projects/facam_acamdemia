@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { api } from '@/lib/api-client';
+import { api, apiRequest } from '@/lib/api-client';
 
 interface ApiModule {
   id: string;
@@ -46,6 +46,7 @@ export default function AdminModulesPage() {
     authorName: 'FACAM',
     moduleType: 'externe',
   });
+  const [adminCoverFile, setAdminCoverFile] = useState<File | null>(null);
 
   const loadModules = useCallback(async () => {
     try {
@@ -71,6 +72,7 @@ export default function AdminModulesPage() {
       authorName: 'FACAM',
       moduleType: 'externe',
     });
+    setAdminCoverFile(null);
     setModuleModal('new');
   };
 
@@ -82,6 +84,7 @@ export default function AdminModulesPage() {
       authorName: mod.authorName ?? 'FACAM',
       moduleType: mod.moduleType === 'interne' ? 'interne' : 'externe',
     });
+    setAdminCoverFile(null);
     setModuleModal('edit');
   };
 
@@ -119,10 +122,19 @@ export default function AdminModulesPage() {
           authorName: moduleForm.authorName,
           moduleType: moduleForm.moduleType,
         });
+        if (adminCoverFile) {
+          const form = new FormData();
+          form.append('file', adminCoverFile);
+          await apiRequest(`/formations/${editingModuleId}/cover-image`, {
+            method: 'POST',
+            body: form,
+          });
+        }
         await loadModules();
       }
       setModuleModal(null);
       setEditingModuleId(null);
+      setAdminCoverFile(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur enregistrement');
     } finally {
@@ -259,6 +271,22 @@ export default function AdminModulesPage() {
               placeholder="FACAM"
               required
             />
+          )}
+          {moduleModal === 'edit' && editingModuleId && (
+            <div className="space-y-2">
+              <span className="block text-sm font-semibold text-facam-dark">
+                Image de couverture (optionnel, JPG/PNG/WebP, max. 5 Mo)
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full text-sm text-gray-600"
+                onChange={(e) => setAdminCoverFile(e.target.files?.[0] ?? null)}
+              />
+              <p className="text-xs text-gray-500">
+                Téléversement Supabase. Laisser vide pour ne pas changer l’image.
+              </p>
+            </div>
           )}
           <div className="flex gap-2">
             <Button type="submit" variant="accent" disabled={saving}>

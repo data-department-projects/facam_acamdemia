@@ -11,12 +11,75 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search, PlayCircle, Star } from 'lucide-react';
+import {
+  Search,
+  PlayCircle,
+  Star,
+  BookOpen,
+  GraduationCap,
+  FlaskConical,
+  PencilRuler,
+  Calculator,
+  PenTool,
+  Notebook,
+  School,
+  Sigma,
+  Atom,
+  Lightbulb,
+  Landmark,
+  Binary,
+  Compass,
+  Shapes,
+  Microscope,
+  ScrollText,
+  FolderPen,
+  DraftingCompass,
+  Bot,
+} from 'lucide-react';
 import { api } from '@/lib/api-client';
 
 const TABS = [
   { id: 'all', label: 'Tous les cours' },
   { id: 'certs', label: 'Certifications' },
+] as const;
+
+const LEARNING_DOODLES = [
+  { Icon: BookOpen, className: '-left-4 top-2 size-16 rotate-[-12deg]' },
+  { Icon: GraduationCap, className: 'left-1/4 -top-3 size-14 rotate-[10deg]' },
+  { Icon: FlaskConical, className: 'left-[42%] top-10 size-14 rotate-[-8deg]' },
+  { Icon: PencilRuler, className: 'right-[28%] -top-2 size-16 rotate-[18deg]' },
+  { Icon: Calculator, className: 'right-6 top-4 size-14 rotate-[-14deg]' },
+  { Icon: BookOpen, className: 'left-[12%] bottom-1 size-12 rotate-[8deg]' },
+  { Icon: FlaskConical, className: 'right-[12%] bottom-1 size-12 rotate-[-6deg]' },
+  { Icon: PenTool, className: 'left-[8%] top-14 size-10 rotate-[20deg]' },
+  { Icon: Notebook, className: 'left-[30%] top-3 size-10 rotate-[-14deg]' },
+  { Icon: School, className: 'left-[58%] top-2 size-10 rotate-[10deg]' },
+  { Icon: Sigma, className: 'left-[67%] top-14 size-11 rotate-[-10deg]' },
+  { Icon: Atom, className: 'right-[35%] top-10 size-11 rotate-[12deg]' },
+  { Icon: GraduationCap, className: 'right-[6%] top-14 size-10 rotate-[6deg]' },
+  { Icon: PenTool, className: 'left-[18%] bottom-3 size-9 rotate-[-8deg]' },
+  { Icon: Notebook, className: 'left-[36%] bottom-2 size-9 rotate-[10deg]' },
+  { Icon: Sigma, className: 'left-[52%] bottom-2 size-9 rotate-[-12deg]' },
+  { Icon: School, className: 'left-[72%] bottom-2 size-9 rotate-[9deg]' },
+  { Icon: Atom, className: 'right-[20%] bottom-3 size-9 rotate-[-7deg]' },
+  { Icon: Calculator, className: 'right-[2%] bottom-2 size-9 rotate-[14deg]' },
+  { Icon: Lightbulb, className: 'left-[4%] top-24 size-8 rotate-[8deg]' },
+  { Icon: Landmark, className: 'left-[24%] top-20 size-8 rotate-[-10deg]' },
+  { Icon: Binary, className: 'left-[48%] top-22 size-8 rotate-[12deg]' },
+  { Icon: Compass, className: 'right-[42%] top-22 size-8 rotate-[-14deg]' },
+  { Icon: Shapes, className: 'right-[16%] top-22 size-8 rotate-[6deg]' },
+  { Icon: Lightbulb, className: 'left-[10%] bottom-6 size-8 rotate-[-6deg]' },
+  { Icon: Landmark, className: 'left-[62%] bottom-6 size-8 rotate-[9deg]' },
+  { Icon: Compass, className: 'right-[30%] bottom-6 size-8 rotate-[-11deg]' },
+  { Icon: Binary, className: 'right-[8%] bottom-6 size-8 rotate-[7deg]' },
+  { Icon: Microscope, className: 'left-[34%] top-24 size-7 rotate-[6deg]' },
+  { Icon: ScrollText, className: 'left-[54%] top-24 size-7 rotate-[-9deg]' },
+  { Icon: FolderPen, className: 'right-[50%] top-24 size-7 rotate-[10deg]' },
+  { Icon: DraftingCompass, className: 'right-[24%] top-24 size-7 rotate-[-7deg]' },
+  { Icon: Bot, className: 'right-[3%] top-26 size-7 rotate-[8deg]' },
+  { Icon: Microscope, className: 'left-[28%] bottom-8 size-7 rotate-[-8deg]' },
+  { Icon: ScrollText, className: 'left-[46%] bottom-8 size-7 rotate-[9deg]' },
+  { Icon: FolderPen, className: 'left-[82%] bottom-8 size-7 rotate-[-6deg]' },
 ] as const;
 
 interface ApiModule {
@@ -52,8 +115,22 @@ export default function MyLearningPage() {
   return (
     <div className="min-h-screen bg-facam-dark">
       {/* En-tête noir type Udemy */}
-      <div className="bg-facam-dark text-white pt-8 md:pt-12 pb-4 px-4 md:px-6">
-        <div className="container mx-auto">
+      <div className="relative overflow-hidden bg-facam-dark px-4 pb-4 pt-8 text-white md:px-6 md:pt-12">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-12 top-0 h-36 w-36 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-facam-blue/40 blur-3xl" />
+          <div className="absolute left-1/2 top-6 h-24 w-24 -translate-x-1/2 rounded-full bg-white/10 blur-2xl" />
+          {LEARNING_DOODLES.map(({ Icon, className }) => (
+            <Icon
+              key={`doodle-${Icon.displayName ?? Icon.name ?? className}-${className}`}
+              className={`absolute text-white/25 blur-[1.5px] ${className}`}
+              strokeWidth={1.8}
+              aria-hidden
+            />
+          ))}
+        </div>
+
+        <div className="container relative z-10 mx-auto">
           <h1 className="text-3xl md:text-4xl font-bold font-montserrat mb-6 md:mb-8">
             Mon apprentissage
           </h1>

@@ -8,7 +8,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRef, useEffect } from 'react';
-import gsap from 'gsap';
+import { gsap } from 'gsap';
 import { BarChart3 } from 'lucide-react';
 
 const LOGO_SRC = '/Facam%20Academia-02-02%202.png';

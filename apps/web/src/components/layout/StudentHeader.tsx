@@ -12,6 +12,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { UserAvatar } from '@/components/account/UserAvatar';
 import { APP_NAME } from '@facam-academia/shared';
 import { api } from '@/lib/api-client';
 
@@ -24,7 +25,11 @@ interface ApiCourse {
   progress?: number;
 }
 
-export function StudentHeader(props: Readonly<{ user: { fullName: string; email: string } }>) {
+export function StudentHeader(
+  props: Readonly<{
+    user: { fullName: string; email: string; avatarUrl?: string | null };
+  }>
+) {
   const { user } = props;
   const [searchQuery, setSearchQuery] = useState('');
   const [myLearningOpen, setMyLearningOpen] = useState(false);
@@ -84,7 +89,7 @@ export function StudentHeader(props: Readonly<{ user: { fullName: string; email:
             href="/student"
             className="text-sm font-medium text-gray-700 hover:text-facam-blue transition-colors hidden sm:block"
           >
-            Découvrir
+            Accueil
           </Link>
 
           {/* Barre de recherche */}
@@ -132,7 +137,7 @@ export function StudentHeader(props: Readonly<{ user: { fullName: string; email:
                     {myCourses.map((course) => (
                       <Link
                         key={course.id}
-                        href={`/student/modules/${course.id}`}
+                        href={`/student/modules/${course.id}/chapitre/1`}
                         onClick={() => setMyLearningOpen(false)}
                         className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
                       >
@@ -175,28 +180,10 @@ export function StudentHeader(props: Readonly<{ user: { fullName: string; email:
             {/* Profil — lien vers la page Compte */}
             <Link
               href="/student/compte"
-              className="flex items-center justify-center size-8 md:size-9 rounded-full bg-facam-dark text-white font-bold text-sm hover:bg-facam-blue transition-colors focus:outline-none focus:ring-2 focus:ring-facam-blue focus:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-full leading-none focus:outline-none focus:ring-2 focus:ring-facam-blue focus:ring-offset-2 hover:opacity-90 transition-opacity"
               aria-label="Mon compte"
             >
-              {user.fullName.charAt(0).toUpperCase()}
-            </Link>
-          </div>
-        </div>
-
-        {/* Sous-barre : Liens rapides (données depuis l’API, pas de mock) */}
-        <div className="border-t border-gray-100 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center gap-1 px-4 md:px-6 py-2 min-w-max">
-            <Link
-              href="/student/modules"
-              className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-full whitespace-nowrap transition-colors"
-            >
-              Tous les modules
-            </Link>
-            <Link
-              href="/student/my-learning"
-              className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-full whitespace-nowrap transition-colors"
-            >
-              Mon apprentissage
+              <UserAvatar fullName={user.fullName} avatarUrl={user.avatarUrl} size="sm" priority />
             </Link>
           </div>
         </div>

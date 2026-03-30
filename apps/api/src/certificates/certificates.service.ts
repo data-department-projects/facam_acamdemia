@@ -5,6 +5,8 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import PDFDocument from 'pdfkit';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /** Données nécessaires pour générer le PDF. */
 export interface CertificatePdfData {
@@ -19,15 +21,99 @@ export class CertificatesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Résout les assets PDF (template + signature) depuis un chemin unique.
+   * Convention projet:
+   * - template: apps/web/public/attestion-template.jpeg
+   * - signature: apps/web/public/signature.png
+   */
+  private resolveCertificateAssets(): {
+    templatePath: string | null;
+    signaturePath: string | null;
+  } {
+    const root = process.cwd();
+    const templatePath = path.join(root, 'apps', 'web', 'public', 'attestation-template.jpeg');
+    const signaturePath = path.join(root, 'apps', 'web', 'public', 'signature.png');
+
+    return {
+      templatePath: fs.existsSync(templatePath) ? templatePath : null,
+      signaturePath: fs.existsSync(signaturePath) ? signaturePath : null,
+    };
+  }
+
+  /**
    * Génère le buffer PDF du certificat (FACAM Academia, nom, module, score, date).
    */
   async genererPdfBuffer(data: CertificatePdfData): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
+      const { templatePath, signaturePath } = this.resolveCertificateAssets();
+
+      // Nouveau rendu: template officiel en fond + champs dynamiques au-dessus.
+      // Si le template n'est pas présent, on conserve l'ancien rendu pour ne pas bloquer la prod.
+      const useTemplate = !!templatePath;
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: useTemplate ? 'landscape' : 'portrait',
+        margin: useTemplate ? 0 : 50,
+      });
       const chunks: Buffer[] = [];
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
+
+      if (useTemplate && templatePath) {
+        const w = doc.page.width;
+        const h = doc.page.height;
+
+        // Fond plein page (template)
+        doc.image(templatePath, 0, 0, { width: w, height: h });
+
+        // Champs dynamiques — positions en ratios pour rester stables en A4 paysage
+        const safeText = (t: string) => t.replace(/\s+/g, ' ').trim();
+        const fullName = safeText(data.fullName);
+        const moduleTitle = safeText(data.moduleTitle);
+        const dateFormatted = new Date(data.issuedAt).toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+
+        doc.fillColor('#111827'); // slate-900
+        doc.font('Times-Roman');
+
+        // Ligne "Nom & prénom" (centre)
+        doc.fontSize(22);
+        doc.text(fullName, 0, h * 0.515, { width: w, align: 'center' });
+
+        // Ligne "Intitulé formation"
+        doc.fontSize(18);
+        doc.text(moduleTitle, 0, h * 0.625, { width: w, align: 'center' });
+
+        // Ligne "Date" (format JJ/MM/AAAA)
+        doc.fontSize(14);
+        doc.text(dateFormatted, w * 0.5, h * 0.665, { width: w * 0.12, align: 'left' });
+
+        // Signature manuscrite: entre "Directeur Général" et le nom, en bas à droite
+        if (signaturePath) {
+          const sigBox = {
+            x: w * 0.73,
+            y: h * 0.735,
+            width: w * 0.18,
+            height: h * 0.09,
+          };
+          try {
+            doc.image(signaturePath, sigBox.x, sigBox.y, {
+              fit: [sigBox.width, sigBox.height],
+              align: 'center',
+              valign: 'center',
+            });
+          } catch {
+            // best-effort: si image invalide, on ne bloque pas le PDF
+          }
+        }
+
+        doc.end();
+        return;
+      }
 
       const pageWidth = doc.page.width - 100;
 

@@ -37,10 +37,6 @@ export class UpdateFormationDto {
 
   @IsOptional()
   @IsUrl()
-  imageUrl?: string;
-
-  @IsOptional()
-  @IsUrl()
   teaserVideoUrl?: string;
 
   @IsOptional()

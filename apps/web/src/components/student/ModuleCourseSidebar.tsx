@@ -34,6 +34,10 @@ interface ModuleCourseSidebarProps {
   currentChapterOrder: number;
   completedChapterOrders?: Set<number>;
   completedItemIds?: Set<string>;
+  /** True quand les progress-items sont chargés (sinon on évite de verrouiller par erreur). */
+  progressReady?: boolean;
+  /** True si le module est déjà certifié/terminé: pas de verrouillage. */
+  isCertified?: boolean;
 }
 
 function formatDuration(min: number): string {
@@ -50,6 +54,8 @@ export function ModuleCourseSidebar({
   currentChapterOrder,
   completedChapterOrders = new Set(),
   completedItemIds = new Set(),
+  progressReady = false,
+  isCertified = false,
 }: ModuleCourseSidebarProps) {
   const sortedChapters = [...chapters].sort((a, b) => a.order - b.order);
 
@@ -63,10 +69,12 @@ export function ModuleCourseSidebar({
       </div>
       <nav className="max-h-[70vh] overflow-y-auto" aria-label="Sommaire du module">
         <ul className="divide-y divide-gray-100">
-          {sortedChapters.map((ch) => {
+          {sortedChapters.map((ch, idx) => {
             const isCurrent = ch.order === currentChapterOrder;
             const completed = completedChapterOrders.has(ch.order);
-            const isLocked = ch.order > 1 && !completedChapterOrders.has(ch.order - 1);
+            const prev = idx > 0 ? sortedChapters[idx - 1] : null;
+            const isLocked =
+              !isCertified && progressReady && !!prev && !completedChapterOrders.has(prev.order);
             const duration = ch.durationMinutes ?? 0;
 
             const content = (

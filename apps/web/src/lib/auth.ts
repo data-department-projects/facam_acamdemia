@@ -14,6 +14,8 @@ export interface StoredUser {
   role: UserRole;
   fullName: string;
   firstLoginAt?: string | null;
+  /** URL publique Supabase Storage (bucket avatars) si définie. */
+  avatarUrl?: string | null;
 }
 
 /**

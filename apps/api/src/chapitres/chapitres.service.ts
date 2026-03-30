@@ -2,15 +2,25 @@
  * Service des chapitres et éléments : CRUD (responsable du module ou admin).
  */
 
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppStorageService } from '../storage/app-storage.service';
 import type { CreateChapitreDto } from './dto/create-chapitre.dto';
 import type { UpdateChapitreDto } from './dto/update-chapitre.dto';
 import type { CreateChapterItemDto } from './dto/create-chapter-item.dto';
 
 @Injectable()
 export class ChapitresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly appStorage: AppStorageService
+  ) {}
 
   async creerChapitre(
     dto: CreateChapitreDto,
@@ -130,7 +140,7 @@ export class ChapitresService {
     return item;
   }
   async trouverParModule(moduleId: string, userId: string, role: string): Promise<unknown[]> {
-    const lectureSeulement = role === 'student';
+    const lectureSeulement = role === 'student' || role === 'employee';
     await this.verifierDroitsModule(moduleId, userId, role, lectureSeulement);
     const chapitres = await this.prisma.chapter.findMany({
       where: { moduleId },
@@ -152,7 +162,7 @@ export class ChapitresService {
     if (!course) {
       throw new NotFoundException('Cours introuvable');
     }
-    const lectureSeulement = role === 'student';
+    const lectureSeulement = role === 'student' || role === 'employee';
     await this.verifierDroitsModule(course.moduleId, userId, role, lectureSeulement);
     const chapitres = await this.prisma.chapter.findMany({
       where: { courseId },
@@ -173,9 +183,33 @@ export class ChapitresService {
     if (!chapitre) {
       throw new NotFoundException('Chapitre introuvable');
     }
-    const lectureSeulement = role === 'student';
+    const lectureSeulement = role === 'student' || role === 'employee';
     await this.verifierDroitsModule(chapitre.moduleId, userId, role, lectureSeulement);
     return chapitre;
+  }
+
+  /**
+   * Téléchargement “propre” : renvoie une URL signée vers le document d’un item.
+   * L’API vérifie les droits (inscription au module pour student/employee).
+   */
+  async getSignedDocumentDownloadUrl(
+    itemId: string,
+    userId: string,
+    role: string
+  ): Promise<{ url: string }> {
+    this.appStorage.assertReady();
+    const item = await this.prisma.chapterItem.findUnique({
+      where: { id: itemId },
+      include: { chapter: { include: { module: true } } },
+    });
+    if (!item || item.type !== 'document' || !item.documentUrl) {
+      throw new NotFoundException('Document introuvable');
+    }
+    const moduleId = item.chapter.moduleId;
+    const lectureSeulement = role === 'student' || role === 'employee';
+    await this.verifierDroitsModule(moduleId, userId, role, lectureSeulement);
+    const { signedUrl } = await this.appStorage.createSignedUrlFromPublicUrl(item.documentUrl);
+    return { url: signedUrl };
   }
 
   async mettreAJourChapitre(
@@ -202,6 +236,125 @@ export class ChapitresService {
       select: { id: true, title: true },
     });
     return updated;
+  }
+
+  /**
+   * Nouvel élément « document » + fichier dans `cours/{moduleId}/{chapterId}/`.
+   */
+  async ajouterDocumentAuChapitre(
+    chapterId: string,
+    file: { buffer: Buffer; mimetype: string; originalname?: string },
+    userId: string,
+    role: string,
+    meta?: { title?: string; documentLabel?: string }
+  ): Promise<{ id: string; title: string; type: string; documentUrl: string }> {
+    this.appStorage.assertReady();
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier document vide ou invalide.');
+    }
+    const ext = this.appStorage.extForChapterDocMime(file.mimetype);
+    if (!ext) {
+      throw new BadRequestException('Type de fichier non accepté (PDF, PPTX, DOCX, DOC, PPT).');
+    }
+    const chapitre = await this.prisma.chapter.findUnique({
+      where: { id: chapterId },
+      include: { module: true, items: true },
+    });
+    if (!chapitre) {
+      throw new NotFoundException('Chapitre introuvable');
+    }
+    await this.verifierDroitsModule(chapitre.moduleId, userId, role);
+    const moduleId = chapitre.moduleId;
+    const maxOrder = chapitre.items.reduce((m, i) => Math.max(m, i.order), 0);
+    const order = maxOrder + 1;
+    const title =
+      meta?.title?.trim() ||
+      (file.originalname ? file.originalname.replace(/\.[^.]+$/, '') : 'Document') ||
+      'Document';
+    let publicUrl: string;
+    try {
+      const uploaded = await this.appStorage.uploadChapterDocument(
+        moduleId,
+        chapterId,
+        file.buffer,
+        file.mimetype,
+        file.originalname
+      );
+      publicUrl = uploaded.publicUrl;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Échec du téléversement';
+      throw new InternalServerErrorException(msg);
+    }
+    const item = await this.prisma.chapterItem.create({
+      data: {
+        chapterId,
+        type: 'document',
+        order,
+        title: title.slice(0, 200),
+        documentLabel: meta?.documentLabel?.trim() || title.slice(0, 200),
+        documentUrl: publicUrl,
+      },
+      select: { id: true, title: true, type: true, documentUrl: true },
+    });
+    return item as { id: string; title: string; type: string; documentUrl: string };
+  }
+
+  /**
+   * Remplace le fichier d’un item document existant (même chapitre / module).
+   */
+  async remplacerDocumentItem(
+    itemId: string,
+    file: { buffer: Buffer; mimetype: string; originalname?: string },
+    userId: string,
+    role: string,
+    meta?: { documentLabel?: string }
+  ): Promise<{ id: string; documentUrl: string }> {
+    this.appStorage.assertReady();
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier document vide ou invalide.');
+    }
+    const ext = this.appStorage.extForChapterDocMime(file.mimetype);
+    if (!ext) {
+      throw new BadRequestException('Type de fichier non accepté (PDF, PPTX, DOCX, DOC, PPT).');
+    }
+    const item = await this.prisma.chapterItem.findUnique({
+      where: { id: itemId },
+      include: { chapter: { include: { module: true } } },
+    });
+    if (!item || item.type !== 'document') {
+      throw new NotFoundException('Élément document introuvable');
+    }
+    const moduleId = item.chapter.moduleId;
+    const chapterId = item.chapterId;
+    await this.verifierDroitsModule(moduleId, userId, role);
+    const previousUrl = item.documentUrl;
+    let publicUrl: string;
+    try {
+      const uploaded = await this.appStorage.uploadChapterDocument(
+        moduleId,
+        chapterId,
+        file.buffer,
+        file.mimetype,
+        file.originalname
+      );
+      publicUrl = uploaded.publicUrl;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Échec du téléversement';
+      throw new InternalServerErrorException(msg);
+    }
+    await this.prisma.chapterItem.update({
+      where: { id: itemId },
+      data: {
+        documentUrl: publicUrl,
+        ...(meta?.documentLabel?.trim()
+          ? { documentLabel: meta.documentLabel.trim().slice(0, 200) }
+          : {}),
+      },
+    });
+    if (previousUrl) {
+      await this.appStorage.removeChapterDocumentByUrlIfOwned(previousUrl, moduleId, chapterId);
+    }
+    return { id: itemId, documentUrl: publicUrl };
   }
 
   async supprimerChapitre(chapitreId: string, userId: string, role: string): Promise<void> {
@@ -231,7 +384,7 @@ export class ChapitresService {
     if (peutModifier) {
       return;
     }
-    if (lectureSeulement && role === 'student') {
+    if (lectureSeulement && (role === 'student' || role === 'employee')) {
       const inscription = await this.prisma.enrollment.findFirst({
         where: { userId, moduleId },
       });

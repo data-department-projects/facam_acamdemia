@@ -4,6 +4,8 @@
 declare module 'pdfkit' {
   interface PDFDocumentOptions {
     size?: string | number[];
+    /** Orientation de page (ex: 'portrait' | 'landscape'). */
+    layout?: 'portrait' | 'landscape';
     margin?: number;
   }
   class PDFDocument extends NodeJS.ReadableStream {
@@ -23,6 +25,18 @@ declare module 'pdfkit' {
     font(name: string): this;
     text(text: string, x?: number, y?: number, options?: { width?: number; align?: string }): this;
     moveDown(n?: number): this;
+    image(
+      src: string,
+      x?: number,
+      y?: number,
+      options?: {
+        width?: number;
+        height?: number;
+        fit?: [number, number];
+        align?: 'left' | 'center' | 'right';
+        valign?: 'top' | 'center' | 'bottom';
+      }
+    ): this;
     end(): void;
     on(event: 'data', cb: (chunk: Buffer) => void): this;
     on(event: 'end', cb: () => void): this;

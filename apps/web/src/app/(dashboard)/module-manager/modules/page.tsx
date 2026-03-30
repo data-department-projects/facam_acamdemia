@@ -9,13 +9,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Plus, GripVertical, Video, FileQuestion, BookOpen, Pencil, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  GripVertical,
+  Video,
+  FileQuestion,
+  BookOpen,
+  Pencil,
+  Trash2,
+  FileText,
+  X,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { QuizBuilder, type QuizQuestionForm } from '@/components/module-manager/QuizBuilder';
-import { api } from '@/lib/api-client';
+import { RichTextEditor } from '@/components/ui/RichTextEditor';
+import { RichTextContent } from '@/components/ui/RichTextContent';
+import { api, apiRequest } from '@/lib/api-client';
 
 interface ApiModule {
   id: string;
@@ -31,7 +43,14 @@ interface ApiChapter {
   title: string;
   description?: string | null;
   order: number;
-  items?: { id: string; type: string; title?: string; videoUrl?: string }[];
+  items?: {
+    id: string;
+    type: string;
+    title?: string;
+    videoUrl?: string;
+    documentUrl?: string | null;
+    documentLabel?: string | null;
+  }[];
   quizzes?: { id: string }[];
 }
 
@@ -41,6 +60,14 @@ type ChapterFormData = {
   videoTitle: string;
   videoUrl: string;
   order: number;
+};
+
+/** Fichiers choisis localement avant envoi : seuls ceux encore dans la liste sont téléversés en base. */
+type PendingChapterDoc = {
+  clientId: string;
+  file: File;
+  title: string;
+  label: string;
 };
 
 export default function ModuleManagerModulesPage() {
@@ -53,10 +80,10 @@ export default function ModuleManagerModulesPage() {
   const [moduleEditModal, setModuleEditModal] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
   const [moduleEditForm, setModuleEditForm] = useState({
-    imageUrl: '',
     prerequisites: '',
     learningObjectives: '',
   });
+  const [moduleCoverFile, setModuleCoverFile] = useState<File | null>(null);
 
   const [chapterModal, setChapterModal] = useState<'new' | 'edit' | null>(null);
   const [chapterModuleId, setChapterModuleId] = useState<string | null>(null);
@@ -70,6 +97,52 @@ export default function ModuleManagerModulesPage() {
   });
   const [chapterQuizQuestions, setChapterQuizQuestions] = useState<QuizQuestionForm[]>([]);
   const [chapterQuizMinScore, setChapterQuizMinScore] = useState(70);
+  const [pendingChapterDocs, setPendingChapterDocs] = useState<PendingChapterDoc[]>([]);
+  const [uploadingChapterDoc, setUploadingChapterDoc] = useState(false);
+
+  const DOC_ACCEPT =
+    '.pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+  const addPendingChapterFiles = (fileList: FileList | File[]) => {
+    const arr = Array.from(fileList);
+    if (arr.length === 0) return;
+    setPendingChapterDocs((prev) => [
+      ...prev,
+      ...arr.map((file) => ({
+        clientId: crypto.randomUUID(),
+        file,
+        title: file.name.replace(/\.[^.]+$/, '') || file.name,
+        label: '',
+      })),
+    ]);
+  };
+
+  const removePendingChapterDoc = (clientId: string) => {
+    setPendingChapterDocs((prev) => prev.filter((d) => d.clientId !== clientId));
+  };
+
+  const updatePendingChapterDoc = (
+    clientId: string,
+    patch: Partial<Pick<PendingChapterDoc, 'title' | 'label'>>
+  ) => {
+    setPendingChapterDocs((prev) =>
+      prev.map((d) => (d.clientId === clientId ? { ...d, ...patch } : d))
+    );
+  };
+
+  /** Téléverse une copie figée de la liste (évite les incohérences si l’état React change pendant les await). */
+  const uploadDocListToChapter = async (chapterId: string, docs: PendingChapterDoc[]) => {
+    for (const doc of docs) {
+      const form = new FormData();
+      form.append('file', doc.file);
+      if (doc.title.trim()) form.append('title', doc.title.trim());
+      if (doc.label.trim()) form.append('documentLabel', doc.label.trim());
+      await apiRequest(`/chapitres/chapter/${chapterId}/documents`, {
+        method: 'POST',
+        body: form,
+      });
+    }
+  };
 
   const [chapterToDelete, setChapterToDelete] = useState<{
     moduleId: string;
@@ -116,10 +189,10 @@ export default function ModuleManagerModulesPage() {
   const openModuleEdit = (mod: ApiModule) => {
     setEditingModuleId(mod.id);
     setModuleEditForm({
-      imageUrl: mod.imageUrl ?? '',
       prerequisites: mod.prerequisites ?? '',
       learningObjectives: mod.learningObjectives ?? '',
     });
+    setModuleCoverFile(null);
     setModuleEditModal(true);
   };
 
@@ -129,13 +202,21 @@ export default function ModuleManagerModulesPage() {
     setError(null);
     try {
       await api.patch(`/formations/${editingModuleId}`, {
-        imageUrl: moduleEditForm.imageUrl.trim() || undefined,
         prerequisites: moduleEditForm.prerequisites.trim() || undefined,
         learningObjectives: moduleEditForm.learningObjectives.trim() || undefined,
       });
+      if (moduleCoverFile) {
+        const form = new FormData();
+        form.append('file', moduleCoverFile);
+        await apiRequest<{ imageUrl: string }>(`/formations/${editingModuleId}/cover-image`, {
+          method: 'POST',
+          body: form,
+        });
+      }
       await loadModules();
       setModuleEditModal(false);
       setEditingModuleId(null);
+      setModuleCoverFile(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur mise à jour module');
     } finally {
@@ -146,6 +227,7 @@ export default function ModuleManagerModulesPage() {
   const openNewChapter = (moduleId: string) => {
     const list = chaptersByModule[moduleId] ?? [];
     setChapterModuleId(moduleId);
+    setPendingChapterDocs([]);
     setChapterForm({
       title: '',
       description: '',
@@ -162,6 +244,7 @@ export default function ModuleManagerModulesPage() {
   const openEditChapter = (moduleId: string, ch: ApiChapter) => {
     setChapterModuleId(moduleId);
     setEditingChapterId(ch.id);
+    setPendingChapterDocs([]);
     setChapterForm({
       title: ch.title,
       description: ch.description ?? '',
@@ -176,6 +259,8 @@ export default function ModuleManagerModulesPage() {
 
   const saveChapter = async () => {
     if (!chapterModuleId) return;
+    /** Liste figée au clic sur Enregistrer : seuls ces fichiers partent en base si l’envoi réussit. */
+    const docsAtSave = [...pendingChapterDocs];
     setSaving(true);
     setError(null);
     try {
@@ -201,13 +286,23 @@ export default function ModuleManagerModulesPage() {
                 }))
             : undefined,
         };
-        await api.post('/chapitres', payload);
+        const created = await api.post<{ id: string }>('/chapitres', payload);
+        if (created?.id && docsAtSave.length > 0) {
+          await uploadDocListToChapter(created.id, docsAtSave);
+          const uploadedIds = new Set(docsAtSave.map((d) => d.clientId));
+          setPendingChapterDocs((prev) => prev.filter((d) => !uploadedIds.has(d.clientId)));
+        }
       } else if (editingChapterId) {
         await api.patch(`/chapitres/${editingChapterId}`, {
           title: chapterForm.title.trim(),
           description: chapterForm.description.trim() || undefined,
           order: chapterForm.order,
         });
+        if (docsAtSave.length > 0) {
+          await uploadDocListToChapter(editingChapterId, docsAtSave);
+          const uploadedIds = new Set(docsAtSave.map((d) => d.clientId));
+          setPendingChapterDocs((prev) => prev.filter((d) => !uploadedIds.has(d.clientId)));
+        }
       }
       await loadChapters(chapterModuleId);
       setChapterModal(null);
@@ -217,6 +312,22 @@ export default function ModuleManagerModulesPage() {
       setError(e instanceof Error ? e.message : 'Erreur enregistrement chapitre');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleReplaceChapterDocument = async (itemId: string, file: File) => {
+    if (!chapterModuleId) return;
+    setUploadingChapterDoc(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      await apiRequest(`/chapitres/items/${itemId}/document`, { method: 'POST', body: form });
+      await loadChapters(chapterModuleId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur remplacement document');
+    } finally {
+      setUploadingChapterDoc(false);
     }
   };
 
@@ -240,9 +351,9 @@ export default function ModuleManagerModulesPage() {
       <div>
         <h1 className="text-2xl font-bold text-facam-dark">Cours et contenus</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Module et chapitres (sans niveau Cours). Vous pouvez modifier l&apos;image et les
-          prérequis du module, puis gérer les chapitres (création, modification, suppression).
-          Chaque chapitre peut inclure une vidéo et un quiz ; la bonne réponse permet de noter
+          Module et chapitres (sans niveau Cours). Image de couverture et documents se téléversent
+          vers Supabase (plus d’URL externe). Prérequis et objectifs du module, puis chapitres
+          (vidéo YouTube, quiz ; documents PDF / Office téléversés depuis l’édition du chapitre).
           l&apos;étudiant et de le faire passer au chapitre suivant si le score minimum est atteint.
         </p>
       </div>
@@ -299,7 +410,7 @@ export default function ModuleManagerModulesPage() {
                   {mod.prerequisites && (
                     <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 p-3 text-sm">
                       <span className="font-medium text-gray-700">Prérequis :</span>{' '}
-                      {mod.prerequisites}
+                      <RichTextContent content={mod.prerequisites} className="mt-2" />
                     </div>
                   )}
 
@@ -321,6 +432,9 @@ export default function ModuleManagerModulesPage() {
                             <span className="flex-1 font-medium text-facam-dark">{ch.title}</span>
                             <span className="flex items-center gap-2 text-xs text-gray-500">
                               {ch.items?.some((i) => i.videoUrl) && <Video className="size-3" />}
+                              {ch.items?.some((i) => i.type === 'document' && i.documentUrl) && (
+                                <FileText className="size-3 text-facam-blue" aria-hidden />
+                              )}
                               {(ch.quizzes?.length ?? 0) > 0 && (
                                 <span className="text-amber-600">Quiz</span>
                               )}
@@ -385,47 +499,40 @@ export default function ModuleManagerModulesPage() {
           }}
           className="space-y-4"
         >
-          <Input
-            label="URL de l'image d'affichage"
-            value={moduleEditForm.imageUrl}
-            onChange={(e) => setModuleEditForm((f) => ({ ...f, imageUrl: e.target.value }))}
-            placeholder="https://..."
-          />
-          <p className="text-xs text-gray-500">
-            Cette image sera affichée sur l&apos;interface étudiant pour représenter le module.
-          </p>
+          <div className="space-y-2">
+            <span className="block text-sm font-semibold text-facam-dark">
+              Image de couverture (JPG, PNG, WebP — max. 5 Mo)
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="block w-full text-sm text-gray-600"
+              onChange={(e) => setModuleCoverFile(e.target.files?.[0] ?? null)}
+            />
+            {moduleCoverFile && (
+              <p className="text-xs text-gray-600">
+                Nouveau fichier sélectionné : {moduleCoverFile.name} (enregistré avec le
+                formulaire).
+              </p>
+            )}
+            <p className="text-xs text-gray-500">
+              Stockage sécurisé Supabase. Laisser vide pour conserver l’image actuelle du module.
+            </p>
+          </div>
           <div>
-            <label
-              htmlFor="module-prerequisites"
-              className="mb-1.5 block text-sm font-semibold text-facam-dark"
-            >
-              Prérequis
-            </label>
-            <textarea
-              id="module-prerequisites"
+            <RichTextEditor
+              label="Prérequis"
               value={moduleEditForm.prerequisites}
-              onChange={(e) => setModuleEditForm((f) => ({ ...f, prerequisites: e.target.value }))}
+              onChange={(html) => setModuleEditForm((f) => ({ ...f, prerequisites: html }))}
               placeholder="Connaissances nécessaires avant de suivre le module..."
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label
-              htmlFor="module-learning-objectives"
-              className="mb-1.5 block text-sm font-semibold text-facam-dark"
-            >
-              Objectifs d&apos;apprentissage
-            </label>
-            <textarea
-              id="module-learning-objectives"
+            <RichTextEditor
+              label="Objectifs d'apprentissage"
               value={moduleEditForm.learningObjectives}
-              onChange={(e) =>
-                setModuleEditForm((f) => ({ ...f, learningObjectives: e.target.value }))
-              }
+              onChange={(html) => setModuleEditForm((f) => ({ ...f, learningObjectives: html }))}
               placeholder="Ce que l'étudiant va apprendre, compétences acquises à la fin..."
-              rows={4}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div className="flex gap-2">
@@ -446,6 +553,7 @@ export default function ModuleManagerModulesPage() {
           setChapterModal(null);
           setChapterModuleId(null);
           setEditingChapterId(null);
+          setPendingChapterDocs([]);
         }}
         title={chapterModal === 'edit' ? 'Modifier le chapitre' : 'Ajouter un chapitre'}
       >
@@ -456,6 +564,12 @@ export default function ModuleManagerModulesPage() {
           }}
           className="space-y-4"
         >
+          <p className="text-xs text-gray-600 rounded-lg bg-facam-blue-tint/40 border border-facam-blue/15 px-3 py-2">
+            Vous pouvez combiner une <strong>vidéo YouTube</strong>, un ou plusieurs{' '}
+            <strong>documents</strong> (PDF, Office — stockés sur Supabase) et un{' '}
+            <strong>quiz</strong>. Les documents choisis ci‑dessous sont enregistrés en base
+            uniquement lorsque vous cliquez sur « Enregistrer ».
+          </p>
           <Input
             label="Titre du chapitre"
             value={chapterForm.title}
@@ -464,10 +578,14 @@ export default function ModuleManagerModulesPage() {
             required
           />
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-facam-dark">
+            <label
+              htmlFor="chapter-description"
+              className="mb-1.5 block text-sm font-semibold text-facam-dark"
+            >
               Description (optionnel)
             </label>
             <textarea
+              id="chapter-description"
               value={chapterForm.description}
               onChange={(e) => setChapterForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="Courte description du chapitre..."
@@ -503,6 +621,127 @@ export default function ModuleManagerModulesPage() {
               }))
             }
           />
+          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+            <p className="text-sm font-semibold text-facam-dark">Documents à joindre (optionnel)</p>
+            <p className="text-xs text-gray-500">
+              Sélection illimitée de fichiers (PDF, PPTX, DOCX… — max. 50 Mo par fichier). La croix
+              retire un fichier de la liste : il ne sera pas téléversé ni enregistré en base.
+            </p>
+            <div>
+              <label
+                htmlFor="chapter-pending-docs-input"
+                className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-facam-blue hover:underline"
+              >
+                <FileText className="h-4 w-4 shrink-0" />
+                <span>Ajouter des fichiers</span>
+              </label>
+              <input
+                id="chapter-pending-docs-input"
+                type="file"
+                className="sr-only"
+                multiple
+                accept={DOC_ACCEPT}
+                disabled={saving || uploadingChapterDoc}
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files?.length) addPendingChapterFiles(files);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+            {pendingChapterDocs.length > 0 && (
+              <ul className="space-y-3 border-t border-gray-100 pt-3">
+                {pendingChapterDocs.map((doc) => (
+                  <li
+                    key={doc.clientId}
+                    className="relative rounded-lg border border-gray-200 bg-gray-50/80 p-3 pr-11"
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Retirer ${doc.file.name} de la sélection`}
+                      className="absolute right-2 top-2 rounded-md p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                      onClick={() => removePendingChapterDoc(doc.clientId)}
+                      disabled={saving}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <p className="mb-2 truncate text-xs text-gray-600" title={doc.file.name}>
+                      {doc.file.name}
+                    </p>
+                    <div className="space-y-2">
+                      <Input
+                        label="Titre affiché aux étudiants"
+                        value={doc.title}
+                        onChange={(e) =>
+                          updatePendingChapterDoc(doc.clientId, { title: e.target.value })
+                        }
+                        placeholder="Ex. Support de cours"
+                      />
+                      <Input
+                        label="Libellé du lien (optionnel)"
+                        value={doc.label}
+                        onChange={(e) =>
+                          updatePendingChapterDoc(doc.clientId, { label: e.target.value })
+                        }
+                        placeholder="Télécharger le PDF"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {chapterModal === 'edit' && editingChapterId && chapterModuleId && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+              <p className="text-sm font-medium text-facam-dark">
+                Documents (PDF, PPTX, DOCX… — max. 50 Mo)
+              </p>
+              <ul className="space-y-2 text-sm">
+                {(
+                  chaptersByModule[chapterModuleId]?.find((c) => c.id === editingChapterId)
+                    ?.items ?? []
+                )
+                  .filter((i) => i.type === 'document' && i.documentUrl)
+                  .map((doc) => (
+                    <li
+                      key={doc.id}
+                      className="flex flex-wrap items-center gap-2 rounded border border-white bg-white/80 px-2 py-1.5"
+                    >
+                      <a
+                        href={doc.documentUrl!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-facam-blue underline truncate max-w-[200px]"
+                      >
+                        {doc.documentLabel ?? doc.title ?? 'Document'}
+                      </a>
+                      <label
+                        htmlFor={`replace-doc-${doc.id}`}
+                        className="text-xs text-facam-blue cursor-pointer hover:underline"
+                      >
+                        Remplacer le fichier
+                      </label>
+                      <input
+                        id={`replace-doc-${doc.id}`}
+                        type="file"
+                        className="sr-only"
+                        accept={DOC_ACCEPT}
+                        disabled={uploadingChapterDoc}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) void handleReplaceChapterDocument(doc.id, f);
+                          e.target.value = '';
+                        }}
+                      />
+                    </li>
+                  ))}
+              </ul>
+              <p className="border-t border-gray-200 pt-3 text-xs text-gray-600">
+                Les nouveaux fichiers se gèrent dans « Documents à joindre » juste au‑dessus :
+                enregistrez le chapitre pour les envoyer en base.
+              </p>
+            </div>
+          )}
           {chapterModal === 'new' && (
             <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
               <p className="mb-2 text-sm font-medium text-facam-dark">
@@ -524,7 +763,16 @@ export default function ModuleManagerModulesPage() {
             <Button type="submit" variant="accent" disabled={saving}>
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setChapterModal(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setChapterModal(null);
+                setChapterModuleId(null);
+                setEditingChapterId(null);
+                setPendingChapterDocs([]);
+              }}
+            >
               Annuler
             </Button>
           </div>

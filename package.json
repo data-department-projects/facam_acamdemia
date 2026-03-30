@@ -22,6 +22,7 @@
     "prepare": "node -e \"if (process.env.HUSKY === '0' || process.env.CI === '1' || process.env.VERCEL === '1') process.exit(0); require('child_process').execSync('npx husky', { stdio: 'inherit' })\""
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^15.0.0",
     "@types/node": "^20.10.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -40,7 +41,7 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix",
-      "prettier --write"
+      "node --max-old-space-size=8192 ./node_modules/prettier/bin/prettier.cjs --write"
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"

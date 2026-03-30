@@ -2,9 +2,16 @@
  * Service des modules de formation : CRUD, liste pour étudiant (avec progression si inscrit).
  */
 
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppStorageService } from '../storage/app-storage.service';
 import type { CreateFormationDto } from './dto/create-formation.dto';
 import type { UpdateFormationDto } from './dto/update-formation.dto';
 
@@ -17,7 +24,10 @@ function normalizeModuleType(value: string | null | undefined): string | null {
 
 @Injectable()
 export class FormationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly appStorage: AppStorageService
+  ) {}
 
   /**
    * Crée un module de formation (admin). Le responsable est assigné via la création d'un utilisateur.
@@ -29,7 +39,6 @@ export class FormationsService {
         subtitle: dto.subtitle,
         description: dto.description,
         moduleType: dto.moduleType ?? null,
-        imageUrl: dto.imageUrl,
         teaserVideoUrl: dto.teaserVideoUrl,
         level: dto.level,
         sharePointFolderUrl: dto.sharePointFolderUrl,
@@ -211,6 +220,55 @@ export class FormationsService {
   }
 
   /**
+   * Image de couverture : upload Supabase (`images/modules/{moduleId}/…`), remplace l’URL en base et supprime l’ancien fichier si c’était notre storage.
+   */
+  async telechargerCouvertureModule(
+    moduleId: string,
+    file: { buffer: Buffer; mimetype: string },
+    userId: string,
+    role: string
+  ): Promise<{ imageUrl: string }> {
+    this.appStorage.assertReady();
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier image vide ou invalide.');
+    }
+    const ext = this.appStorage.extForModuleImageMime(file.mimetype);
+    if (!ext) {
+      throw new BadRequestException('Format non accepté pour la couverture : JPG, PNG ou WebP.');
+    }
+    const module_ = await this.prisma.module.findUnique({ where: { id: moduleId } });
+    if (!module_) {
+      throw new NotFoundException('Module introuvable');
+    }
+    const peutModifier =
+      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    if (!peutModifier) {
+      throw new ForbiddenException('Vous ne pouvez pas modifier ce module');
+    }
+    const previousUrl = module_.imageUrl;
+    let publicUrl: string;
+    try {
+      const uploaded = await this.appStorage.uploadModuleCoverImage(
+        moduleId,
+        file.buffer,
+        file.mimetype
+      );
+      publicUrl = uploaded.publicUrl;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Échec du téléversement';
+      throw new InternalServerErrorException(msg);
+    }
+    await this.prisma.module.update({
+      where: { id: moduleId },
+      data: { imageUrl: publicUrl },
+    });
+    if (previousUrl) {
+      await this.appStorage.removeModuleCoverImageByUrlIfOwned(previousUrl, moduleId);
+    }
+    return { imageUrl: publicUrl };
+  }
+
+  /**
    * Met à jour un module (admin ou responsable de ce module).
    */
   async mettreAJour(
@@ -239,7 +297,6 @@ export class FormationsService {
         ...(dto.learningObjectives !== undefined && {
           learningObjectives: dto.learningObjectives,
         }),
-        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
         ...(dto.teaserVideoUrl !== undefined && { teaserVideoUrl: dto.teaserVideoUrl }),
         ...(dto.level !== undefined && { level: dto.level }),
         ...(dto.sharePointFolderUrl !== undefined && {
