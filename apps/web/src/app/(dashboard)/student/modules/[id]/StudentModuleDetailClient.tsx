@@ -21,7 +21,9 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { RichTextContent } from '@/components/ui/RichTextContent';
 import { api } from '@/lib/api-client';
+import { buildDownloadFilename, downloadFileFromUrl } from '@/lib/download-file';
 
 /** Élément d'un chapitre : vidéo, document ou quiz */
 interface ApiChapterItem {
@@ -94,7 +96,22 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
   const router = useRouter();
+  const downloadChapterDocument = async (itemId: string, label: string) => {
+    setDownloadingItemId(itemId);
+    try {
+      const res = await api.get<{ url: string }>(
+        `/chapitres/items/${itemId}/document-download-url`
+      );
+      if (res?.url) {
+        const filename = buildDownloadFilename({ label, url: res.url, fallbackExt: 'pdf' });
+        await downloadFileFromUrl(res.url, filename);
+      }
+    } finally {
+      setDownloadingItemId((prev) => (prev === itemId ? null : prev));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -127,12 +144,6 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
         items: (ch.items ?? []).slice().sort((a, b) => a.order - b.order),
       }));
   }, [module_]);
-
-  const resumeChapterOrder = useMemo(() => {
-    if (!module_?.lastViewedChapterId) return 1;
-    const ch = chapters.find((c) => c.id === module_.lastViewedChapterId);
-    return ch?.order ?? 1;
-  }, [chapters, module_?.lastViewedChapterId]);
 
   const totalSessions = useMemo(
     () => chapters.reduce((acc, ch) => acc + (ch.items?.length ?? 0), 0),
@@ -256,9 +267,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                 <h2 className="text-xl font-bold text-facam-dark mb-4 font-montserrat">
                   Prérequis
                 </h2>
-                <div className="text-gray-700 whitespace-pre-line leading-relaxed">
-                  {module_.prerequisites}
-                </div>
+                <RichTextContent content={module_.prerequisites} className="text-gray-700" />
               </section>
             )}
             {module_.learningObjectives && (
@@ -266,9 +275,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                 <h2 className="text-xl font-bold text-facam-dark mb-4 font-montserrat">
                   Objectifs du module
                 </h2>
-                <div className="text-gray-700 whitespace-pre-line leading-relaxed">
-                  {module_.learningObjectives}
-                </div>
+                <RichTextContent content={module_.learningObjectives} className="text-gray-700" />
               </section>
             )}
             <section className="border border-gray-200 rounded-lg overflow-hidden">
@@ -359,6 +366,24 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                                         >
                                           Aperçu
                                         </a>
+                                      )}
+                                      {isDocument && item.documentUrl && (
+                                        <button
+                                          type="button"
+                                          className="flex-shrink-0 text-facam-blue hover:underline disabled:opacity-60"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            void downloadChapterDocument(
+                                              item.id,
+                                              item.documentLabel ?? item.title ?? 'Document'
+                                            );
+                                          }}
+                                          disabled={downloadingItemId === item.id}
+                                        >
+                                          {downloadingItemId === item.id
+                                            ? 'Téléchargement…'
+                                            : 'Télécharger'}
+                                        </button>
                                       )}
                                       {(item.durationMinutes ?? 0) > 0 && (
                                         <span className="flex-shrink-0 text-gray-500 tabular-nums">
@@ -451,10 +476,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
 
                 <div className="pt-4 space-y-2">
                   {isEnrolled ? (
-                    <Link
-                      href={`/student/modules/${moduleId}/chapitre/${resumeChapterOrder}`}
-                      className="block"
-                    >
+                    <Link href={`/student/modules/${moduleId}/chapitre/1`} className="block">
                       <Button
                         variant="accent"
                         size="lg"

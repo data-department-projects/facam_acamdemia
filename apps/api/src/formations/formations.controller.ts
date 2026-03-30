@@ -12,8 +12,14 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { FormationsService } from './formations.service';
+import { MODULE_IMAGE_MAX_BYTES } from '../storage/app-storage.constants';
 import { CreateFormationDto } from './dto/create-formation.dto';
 import { UpdateFormationDto } from './dto/update-formation.dto';
 import { JwtAuthGuard } from '../core/guards/jwt-auth.guard';
@@ -78,6 +84,27 @@ export class FormationsController {
     @CurrentUser() user: UtilisateurPayload
   ) {
     return this.formationsService.statsStudentDetail(enrollmentId, user.sub, user.role);
+  }
+
+  /** Couverture module → Supabase `images/modules/{id}/` (multipart `file`, max 5 Mo, JPG/PNG/WebP). */
+  @Post(':id/cover-image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER, ...MODULE_MANAGER_ROLES)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MODULE_IMAGE_MAX_BYTES },
+    })
+  )
+  async uploadCoverImage(
+    @Param('id') id: string,
+    @CurrentUser() user: UtilisateurPayload,
+    @UploadedFile() file: { buffer: Buffer; mimetype: string } | undefined
+  ) {
+    if (!file) {
+      throw new BadRequestException('Fichier image requis (champ multipart « file »).');
+    }
+    return this.formationsService.telechargerCouvertureModule(id, file, user.sub, user.role);
   }
 
   @Get(':id')

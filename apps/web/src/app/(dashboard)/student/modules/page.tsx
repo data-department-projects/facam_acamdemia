@@ -249,7 +249,13 @@ export default function StudentModulesCataloguePage() {
             )}
 
             <div className="mt-6">
-              <Link href={`/student/modules/${selectedId}`}>
+              <Link
+                href={
+                  selectedModule?.progress && selectedModule.progress > 0
+                    ? `/student/modules/${selectedId}/chapitre/1`
+                    : `/student/modules/${selectedId}`
+                }
+              >
                 <Button variant="accent">
                   {selectedModule?.progress === 100
                     ? 'Voir le module'

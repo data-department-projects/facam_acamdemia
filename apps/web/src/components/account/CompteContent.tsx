@@ -1,6 +1,6 @@
 /**
- * Contenu commun de la page "Mon compte" : profil (nom, email, rôle, première connexion)
- * et formulaire de changement de mot de passe.
+ * Contenu commun de la page "Mon compte" : profil (photo, nom, email, rôle, première connexion),
+ * téléversement d’avatar (Supabase via API) et formulaire de changement de mot de passe.
  * Utilisé par les espaces étudiant, responsable de module et administrateur pour éviter la duplication.
  */
 
@@ -8,17 +8,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User, Mail, Shield, Calendar, ArrowLeft, KeyRound } from 'lucide-react';
+import { Mail, Shield, Calendar, ArrowLeft, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { API_BASE } from '@/lib/api-client';
-
-export interface StoredUser {
-  email: string;
-  role: string;
-  fullName: string;
-  firstLoginAt?: string | null;
-}
+import { API_BASE, getAccessToken } from '@/lib/api-client';
+import type { StoredUser } from '@/lib/auth';
+import { UserAvatar } from '@/components/account/UserAvatar';
+import { AvatarUploader } from '@/components/account/AvatarUploader';
 
 export interface CompteContentProps {
   /** Lien de retour (ex: /student, /admin, /module-manager) */
@@ -51,10 +47,16 @@ export function CompteContent({ backHref, homeHref, roleLabel }: CompteContentPr
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdSuccess, setPwdSuccess] = useState(false);
   const [pwdError, setPwdError] = useState('');
+  const [hasApiToken, setHasApiToken] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+    setHasApiToken(!!getAccessToken());
+  }, [mounted]);
 
   useEffect(() => {
     if (!mounted || typeof window === 'undefined') return;
@@ -143,14 +145,23 @@ export function CompteContent({ backHref, homeHref, roleLabel }: CompteContentPr
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-6 md:p-8 space-y-6">
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-14 h-14 rounded-full bg-facam-blue-tint flex items-center justify-center text-facam-blue">
-                  <User className="size-7" />
-                </div>
+                <UserAvatar fullName={user.fullName} avatarUrl={user.avatarUrl} size="md" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Nom complet</p>
                   <p className="text-lg font-bold text-facam-dark">{user.fullName}</p>
                 </div>
               </div>
+
+              {user && hasApiToken && (
+                <div className="border-t border-gray-100 pt-6">
+                  <AvatarUploader user={user} onUserUpdate={(u) => setUser(u)} />
+                </div>
+              )}
+              {user && !hasApiToken && (
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                  Connectez-vous via l’API pour modifier votre photo de profil (session sans jeton).
+                </p>
+              )}
 
               <div className="border-t border-gray-100 pt-6">
                 <div className="flex items-start gap-4">

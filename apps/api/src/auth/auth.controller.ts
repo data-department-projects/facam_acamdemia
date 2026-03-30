@@ -2,7 +2,18 @@
  * Contrôleur d'authentification : connexion (POST), health smoke test.
  */
 
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -72,5 +83,26 @@ export class AuthController {
   @Get('me')
   async getMe(@CurrentUser() user: UtilisateurPayload) {
     return this.authService.getProfil(user.sub);
+  }
+
+  /**
+   * Avatar : multipart field `file`, max 2 Mo, JPG/PNG/WebP (voir validation côté service).
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 },
+    })
+  )
+  async uploadAvatar(
+    @CurrentUser() user: UtilisateurPayload,
+    @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number } | undefined
+  ) {
+    if (!file) {
+      throw new BadRequestException('Fichier image requis (champ multipart « file »).');
+    }
+    return this.authService.telechargerAvatar(user.sub, file);
   }
 }

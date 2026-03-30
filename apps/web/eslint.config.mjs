@@ -23,6 +23,18 @@ export default [
   {
     ignores: ['.next/**', 'node_modules/**', 'out/**'],
   },
+  // Next.js: on active le plugin aussi pour .js/.ts afin que Next détecte bien la config
+  // (Next affiche un warning si le plugin @next/next n'est pas présent dans la config).
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+    },
+  },
   // Fichiers .js uniquement (configs)
   {
     files: ['**/*.js'],
@@ -91,11 +103,9 @@ export default [
       'react-hooks': pluginReactHooks,
       'jsx-a11y': pluginJsxA11y,
       import: pluginImport,
-      '@next/next': nextPlugin,
     },
     rules: {
       ...pluginReactHooks.configs.recommended.rules,
-      ...nextPlugin.configs.recommended.rules,
       'import/no-anonymous-default-export': 'warn',
       'jsx-a11y/alt-text': [
         'warn',

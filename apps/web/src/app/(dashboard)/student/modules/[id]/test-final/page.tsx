@@ -6,11 +6,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api-client';
+import { Modal } from '@/components/ui/Modal';
 
 interface ApiQuestion {
   id: string;
@@ -31,6 +32,16 @@ interface ApiModule {
   id: string;
   title: string;
   finalQuizId?: string | null;
+  chapters?: {
+    id: string;
+    title: string;
+    order: number;
+    items?: {
+      id: string;
+      type: string;
+      quizId?: string | null;
+    }[];
+  }[];
 }
 
 interface ApiCertificate {
@@ -77,12 +88,15 @@ const MIN_SCORE_FINAL = 70;
 export default function StudentTestFinalPage() {
   const params = useParams();
   const moduleId = params.id as string;
+  const router = useRouter();
 
   const [module_, setModule_] = useState<ApiModule | null>(null);
   const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [blockedChapterOrder, setBlockedChapterOrder] = useState<number | null>(null);
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<number[][]>([]);
   const [submitted, setSubmitted] = useState(false);
@@ -93,55 +107,95 @@ export default function StudentTestFinalPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setBlockedModalOpen(false);
+    setBlockedChapterOrder(null);
+
     api
       .get<ApiModule>(`/formations/${moduleId}`)
-      .then((mod) => {
+      .then(async (mod) => {
         if (cancelled) return;
         setModule_(mod);
-        return mod.finalQuizId;
-      })
-      .then((finalQuizId) => {
-        if (cancelled || !finalQuizId) {
-          if (!cancelled) setLoading(false);
+
+        const finalQuizId = mod.finalQuizId;
+        if (!finalQuizId) {
+          setLoading(false);
           return;
         }
-        return Promise.all([
-          api.get<ApiQuiz>(`/quiz/${finalQuizId}`),
-          api.get<{ id: string; moduleId: string }[]>('/enrollments').then((list) => {
-            const arr = Array.isArray(list) ? list : [];
-            const en = arr.find((e) => e.moduleId === moduleId);
-            return en?.id ?? null;
-          }),
-        ]).then(async ([q, enId]) => {
-          if (!cancelled) {
-            setQuiz(q);
-            setEnrollmentId(enId);
-            setAnswers(new Array((q.questions ?? []).length).fill(null).map(() => []));
-          }
 
-          // Si un certificat existe déjà, le test final est déjà validé :
-          // on affiche l'état "réussi" et on évite de repasser le test.
-          if (enId) {
-            try {
-              const cert = await api.get<ApiCertificate>(`/certificates/enrollment/${enId}`);
-              if (cancelled) return;
-              const scorePercent = Math.max(
-                0,
-                Math.min(100, Math.round((cert.finalGrade / 20) * 100))
-              );
-              setResult({ scorePercent, passed: true });
-              setSubmitted(true);
-            } catch {
-              // Pas de certificat : l'étudiant peut passer/repasse le test.
+        // EnrollmentId côté apprenant :
+        const list = await api.get<{ id: string; moduleId: string }[]>('/enrollments');
+        const arr = Array.isArray(list) ? list : [];
+        const enId = arr.find((e) => e.moduleId === moduleId)?.id ?? null;
+        if (!cancelled) setEnrollmentId(enId);
+
+        // Si un certificat existe déjà, le test final est déjà validé :
+        // on évite de repasser le test.
+        if (enId) {
+          try {
+            const cert = await api.get<ApiCertificate>(`/certificates/enrollment/${enId}`);
+            if (cancelled) return;
+            const scorePercent = Math.max(
+              0,
+              Math.min(100, Math.round((cert.finalGrade / 20) * 100))
+            );
+            setResult({ scorePercent, passed: true });
+            setSubmitted(true);
+            setLoading(false);
+            return;
+          } catch {
+            // Pas de certificat : l'étudiant doit compléter le contenu requis avant d'accéder au test final.
+          }
+        }
+
+        // Blocage certification si du contenu a été ajouté pendant la progression :
+        if (enId) {
+          const progress = await api.get<{ chapterItemIds: string[] }>(
+            `/enrollments/${enId}/progress-items`
+          );
+          const ids = Array.isArray(progress.chapterItemIds) ? progress.chapterItemIds : [];
+          const completedSet = new Set(ids);
+
+          const chaptersSorted = (mod.chapters ?? []).slice().sort((a, b) => a.order - b.order);
+          let firstIncomplete: number | null = null;
+
+          for (const ch of chaptersSorted) {
+            const items = ch.items ?? [];
+            const quizItems = items.filter((it) => it.type === 'quiz');
+            const required =
+              quizItems.length > 0
+                ? quizItems
+                : items.filter((it) => it.type === 'video' || it.type === 'quiz');
+
+            if (required.length === 0) continue;
+
+            const ok = required.every((it) => completedSet.has(it.id));
+            if (!ok) {
+              firstIncomplete = ch.order;
+              break;
             }
           }
-        });
+
+          if (firstIncomplete != null) {
+            if (cancelled) return;
+            setBlockedChapterOrder(firstIncomplete);
+            setBlockedModalOpen(true);
+            setLoading(false);
+            return;
+          }
+        }
+
+        const [q] = await Promise.all([api.get<ApiQuiz>(`/quiz/${finalQuizId}`)]);
+        if (cancelled) return;
+
+        setQuiz(q);
+        setAnswers(new Array((q.questions ?? []).length).fill(null).map(() => []));
+        setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) setQuiz(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setQuiz(null);
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -191,6 +245,36 @@ export default function StudentTestFinalPage() {
       <div className="mx-auto max-w-lg space-y-6">
         <p className="text-slate-600">Chargement du test final…</p>
       </div>
+    );
+  }
+
+  if (blockedModalOpen && blockedChapterOrder != null) {
+    return (
+      <Modal
+        open={blockedModalOpen}
+        onClose={() => setBlockedModalOpen(false)}
+        title="Contenu ajouté pendant votre progression"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-slate-700">
+            Un nouveau chapitre a été ajouté. Avant d'obtenir votre certification, complétez le
+            chapitre correspondant.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => {
+                setBlockedModalOpen(false);
+                router.replace(`/student/modules/${moduleId}/chapitre/${blockedChapterOrder}`);
+              }}
+            >
+              Aller au chapitre
+            </Button>
+            <Button variant="outline" onClick={() => setBlockedModalOpen(false)}>
+              Fermer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     );
   }
 

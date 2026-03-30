@@ -27,10 +27,6 @@ export class CreateFormationDto {
 
   @IsOptional()
   @IsUrl()
-  imageUrl?: string;
-
-  @IsOptional()
-  @IsUrl()
   teaserVideoUrl?: string;
 
   @IsOptional()

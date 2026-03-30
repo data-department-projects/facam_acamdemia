@@ -5,6 +5,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import { StudentHeader } from '@/components/layout/StudentHeader';
 import { CountdownBanner } from '@/components/student/CountdownBanner';
 
@@ -12,8 +13,14 @@ export function StudentLayout({
   children,
   user,
 }: {
-  children: React.ReactNode;
-  user: { fullName: string; email: string; role: string; firstLoginAt?: string | null };
+  readonly children: React.ReactNode;
+  readonly user: {
+    fullName: string;
+    email: string;
+    role: string;
+    firstLoginAt?: string | null;
+    avatarUrl?: string | null;
+  };
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -27,12 +34,9 @@ export function StudentLayout({
         <div className="container mx-auto px-6 flex justify-between items-center">
           <div className="text-sm">© {new Date().getFullYear()} FACAM ACADEMIA</div>
           <div className="flex gap-4 text-sm">
-            <a href="#" className="hover:underline">
+            <Link href="/student/help" className="hover:underline">
               Aide
-            </a>
-            <a href="#" className="hover:underline">
-              Confidentialité
-            </a>
+            </Link>
           </div>
         </div>
       </footer>
