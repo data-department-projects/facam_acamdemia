@@ -1,6 +1,6 @@
 # FACAM ACADEMIA
 
-Plateforme e-learning dédiée aux jeunes diplômés pour les formations industrielles (maintenane, production, QHSE, logistique).
+Plateforme e-learning dédiée aux jeunes diplômés pour les formations industrielles (maintenane, production, QHSE, logistique)
 
 ## Stack
 
