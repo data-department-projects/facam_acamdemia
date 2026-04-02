@@ -20,7 +20,6 @@ import { QuizModule } from './quiz/quiz.module';
 import { GradesModule } from './grades/grades.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { ReviewsModule } from './reviews/reviews.module';
-import { DiscussionsModule } from './discussions/discussions.module';
 import { SupportFeedbackModule } from './support-feedback/support-feedback.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -41,7 +40,6 @@ import { StorageModule } from './storage/storage.module';
     GradesModule,
     CertificatesModule,
     ReviewsModule,
-    DiscussionsModule,
     SupportFeedbackModule,
   ],
   controllers: [AppController],

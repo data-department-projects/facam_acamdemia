@@ -1,7 +1,7 @@
 /**
  * CourseContentAccordion — Accordéon "Contenu du cours" type Udemy (image 3).
  * Affiche : nombre de sections, leçons, durée totale ; liste des sections dépliables
- * avec titre, durée, aperçus (preview). Pas de prix ni panier.
+ * avec titre, durée. Pas de prix ni panier.
  */
 
 'use client';
@@ -29,6 +29,7 @@ export function CourseContentAccordion({
   totalDurationMinutes,
 }: CourseContentAccordionProps) {
   const [openId, setOpenId] = useState<string | null>(sections[0]?.id ?? null);
+  const hasTotalDuration = totalDurationMinutes > 0;
 
   return (
     <div className="border border-gray-200 rounded-b-none rounded-t-lg overflow-hidden">
@@ -40,8 +41,8 @@ export function CourseContentAccordion({
       >
         <h3 className="font-bold text-facam-dark text-lg">Contenu du cours</h3>
         <span className="text-sm text-gray-600">
-          {sections.length} section(s) · {totalLessons} leçon(s) ·{' '}
-          {formatDuration(totalDurationMinutes)}
+          {sections.length} section(s) · {totalLessons} leçon(s)
+          {hasTotalDuration ? ` · ${formatDuration(totalDurationMinutes)}` : ''}
         </span>
         {openId ? (
           <ChevronUp className="size-5 text-gray-500 ml-2" />
@@ -70,7 +71,10 @@ export function CourseContentAccordion({
                   <span className="font-medium text-facam-dark">{section.title}</span>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {section.lessonCount} leçon(s) · {formatDuration(section.durationMinutes)}
+                  {section.lessonCount} leçon(s)
+                  {section.durationMinutes > 0
+                    ? ` · ${formatDuration(section.durationMinutes)}`
+                    : ''}
                 </span>
               </button>
               {isOpen && (
@@ -83,9 +87,6 @@ export function CourseContentAccordion({
                       >
                         <Play className="size-4 text-gray-400 flex-shrink-0" />
                         <span className="flex-1">{lesson.title}</span>
-                        {lesson.isPreview && (
-                          <span className="text-xs font-medium text-facam-blue">Aperçu</span>
-                        )}
                         <span className="text-gray-400 text-xs">
                           {formatDuration(lesson.durationMinutes)}
                         </span>

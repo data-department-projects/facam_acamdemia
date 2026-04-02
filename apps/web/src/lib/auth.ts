@@ -4,6 +4,7 @@
  */
 
 import type { UserRole } from '@/types';
+import { logoutRefreshSession } from '@/lib/api-client';
 
 const USER_STORAGE_KEY = 'facam_user';
 const TOKEN_STORAGE_KEY = 'facam_token';
@@ -49,6 +50,15 @@ export function clearAuthSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(USER_STORAGE_KEY);
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+/**
+ * Déconnexion complète : révoque le refresh (cookie httpOnly) puis efface le stockage local.
+ * À utiliser pour l’inactivité ou un logout explicite.
+ */
+export async function signOutFullClient(): Promise<void> {
+  await logoutRefreshSession();
+  clearAuthSession();
 }
 
 /** Route d'accueil par rôle (après login). */
