@@ -12,7 +12,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
@@ -24,9 +24,7 @@ import {
   Factory,
   Handshake,
   Heart,
-  LockKeyhole,
   Network,
-  PhoneCall,
   ShieldCheck,
   Sparkles,
   Star,
