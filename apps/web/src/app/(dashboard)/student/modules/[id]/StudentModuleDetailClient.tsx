@@ -23,7 +23,6 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { RichTextContent } from '@/components/ui/RichTextContent';
 import { api } from '@/lib/api-client';
-import { buildDownloadFilename, downloadFileFromUrl } from '@/lib/download-file';
 
 /** Élément d'un chapitre : vidéo, document ou quiz */
 interface ApiChapterItem {
@@ -96,22 +95,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
   const [starting, setStarting] = useState(false);
-  const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
   const router = useRouter();
-  const downloadChapterDocument = async (itemId: string, label: string) => {
-    setDownloadingItemId(itemId);
-    try {
-      const res = await api.get<{ url: string }>(
-        `/chapitres/items/${itemId}/document-download-url`
-      );
-      if (res?.url) {
-        const filename = buildDownloadFilename({ label, url: res.url, fallbackExt: 'pdf' });
-        await downloadFileFromUrl(res.url, filename);
-      }
-    } finally {
-      setDownloadingItemId((prev) => (prev === itemId ? null : prev));
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +155,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
   }
 
   const totalDurationHours = module_.durationHours ?? 0;
+  const hasTotalDuration = totalDurationHours > 0;
   const totalDurationLabel =
     totalDurationHours >= 1
       ? `${Math.floor(totalDurationHours)} h ${Math.round((totalDurationHours % 1) * 60)} min`
@@ -289,7 +274,8 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                   <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-3 text-sm text-gray-600">
                     <span>
                       {chapters.length} section{chapters.length === 1 ? '' : 's'} • {totalSessions}{' '}
-                      session{totalSessions === 1 ? '' : 's'} • {totalDurationLabel} de durée totale
+                      session{totalSessions === 1 ? '' : 's'}
+                      {hasTotalDuration ? ` • ${totalDurationLabel} de durée totale` : ''}
                     </span>
                     <button
                       type="button"
@@ -304,6 +290,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                       const expanded = isChapterExpanded(ch);
                       const sessionsCount = ch.items?.length ?? 0;
                       const chDurationMin = chapterDurationMinutes(ch);
+                      const hasChapterDuration = chDurationMin > 0;
                       const chDurationLabel =
                         chDurationMin >= 60
                           ? `${Math.floor(chDurationMin / 60)} h ${chDurationMin % 60} min`
@@ -326,8 +313,8 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                               </span>
                             </span>
                             <span className="flex-shrink-0 text-sm text-gray-500">
-                              {sessionsCount} session{sessionsCount === 1 ? '' : 's'} •{' '}
-                              {chDurationLabel}
+                              {sessionsCount} session{sessionsCount === 1 ? '' : 's'}
+                              {hasChapterDuration ? ` • ${chDurationLabel}` : ''}
                             </span>
                           </button>
                           {expanded && (
@@ -356,35 +343,6 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                                       <span className="min-w-0 flex-1 font-medium text-facam-dark truncate">
                                         {item.title}
                                       </span>
-                                      {isVideo && item.videoUrl && (
-                                        <a
-                                          href={item.videoUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex-shrink-0 text-facam-blue hover:underline"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          Aperçu
-                                        </a>
-                                      )}
-                                      {isDocument && item.documentUrl && (
-                                        <button
-                                          type="button"
-                                          className="flex-shrink-0 text-facam-blue hover:underline disabled:opacity-60"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            void downloadChapterDocument(
-                                              item.id,
-                                              item.documentLabel ?? item.title ?? 'Document'
-                                            );
-                                          }}
-                                          disabled={downloadingItemId === item.id}
-                                        >
-                                          {downloadingItemId === item.id
-                                            ? 'Téléchargement…'
-                                            : 'Télécharger'}
-                                        </button>
-                                      )}
                                       {(item.durationMinutes ?? 0) > 0 && (
                                         <span className="flex-shrink-0 text-gray-500 tabular-nums">
                                           {durationStr}
@@ -441,10 +399,6 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                 </div>
 
                 <ul className="space-y-2 text-sm text-gray-700 border-t border-gray-100 pt-4">
-                  <li className="flex justify-between">
-                    <span className="text-gray-500">Durée totale</span>
-                    <span className="font-medium">{module_.durationHours ?? 0} h</span>
-                  </li>
                   <li className="flex justify-between">
                     <span className="text-gray-500">Chapitres</span>
                     <span className="font-medium">{module_.chaptersCount ?? chapters.length}</span>

@@ -12,20 +12,20 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   Award,
   BookOpen,
-  CheckCircle2,
   ChevronDown,
   Clock,
+  CheckCircle2,
+  Factory,
+  Handshake,
   Heart,
-  LockKeyhole,
-  PhoneCall,
-  UsersRound,
-  Quote,
+  Network,
+  ShieldCheck,
   Sparkles,
   Star,
   Users,
@@ -68,44 +68,36 @@ const DOMAINS = [
   'Data & performance',
 ];
 
-const KEY_METRICS = [
-  { value: 2500, suffix: '+', label: 'Apprenants', icon: Users },
-  { value: 50, suffix: '+', label: 'Formations', icon: BookOpen },
-  { value: 98, suffix: '%', label: 'Taux de réussite', icon: Award },
-  { value: 30, suffix: ' j', label: 'Accès flexible', icon: Clock },
-] as const;
-
 const LEARNING_OUTCOMES = [
   {
-    title: 'Apprendre en pratique',
-    description: 'Des modules orientés terrain pour progresser vite vers les métiers industriels.',
-    icon: UsersRound,
-    side: 'left',
-  },
-  {
-    title: 'Confidentialité',
-    description: 'Un espace d’apprentissage sécurisé, avec des accès et une progression maîtrisés.',
-    icon: LockKeyhole,
-    side: 'left',
-  },
-  {
-    title: 'Communauté',
+    title: 'Un apprentissage ancré dans le terrain',
     description:
-      'Brisez la glace et avancez avec d’autres apprenants motivés, comme dans un vrai campus.',
+      'Progressez rapidement avec des contenus pensés pour les réalités des métiers industriels.',
+    icon: Factory,
+  },
+  {
+    title: 'Un environnement sécurisé',
+    description:
+      'Bénéficiez d’un espace d’apprentissage structuré, avec des accès contrôlés et une progression encadrée.',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Une dynamique de communauté',
+    description:
+      'Évoluez aux côtés d’autres apprenants engagés, dans un esprit collaboratif proche d’un véritable campus.',
     icon: Heart,
-    side: 'left',
   },
   {
-    title: 'Ouverture & réseau',
-    description: 'Élargissez votre cercle et créez des liens forts avec des profils variés.',
-    icon: Users,
-    side: 'right',
+    title: 'Un réseau en construction',
+    description:
+      'Multipliez les échanges et créez des connexions durables avec des profils variés.',
+    icon: Network,
   },
   {
-    title: 'Accompagnement',
-    description: 'Une communication claire et un suivi pour garder le cap et valider vos acquis.',
-    icon: PhoneCall,
-    side: 'right',
+    title: 'Un accompagnement continu',
+    description:
+      'Profitez d’un suivi clair et régulier pour rester motivé et atteindre vos objectifs.',
+    icon: Handshake,
   },
 ] as const;
 
@@ -173,10 +165,16 @@ const FEATURED_PROGRAMS = [
     meta: { hours: 12, rating: 4.8, learners: '2,5k' },
   },
   {
-    title: 'Production & Logistique',
+    title: 'Logistique',
     description: 'Lean, 5S, gestion des flux et pilotage des stocks.',
     image: '/F22.jpg',
     meta: { hours: 10, rating: 4.6, learners: '1,8k' },
+  },
+  {
+    title: 'Production',
+    description: 'Pilotage, standards, performance et amélioration continue.',
+    image: '/F14.jpg',
+    meta: { hours: 11, rating: 4.7, learners: '1,6k' },
   },
   {
     title: 'QHSE - Qualité Sécurité',
@@ -185,101 +183,6 @@ const FEATURED_PROGRAMS = [
     meta: { hours: 15, rating: 4.7, learners: '3,2k' },
   },
 ];
-
-const TESTIMONIALS = [
-  {
-    quote:
-      "Des formations directement applicables en entreprise. J'ai obtenu une certification QHSE et une promotion dans les 6 mois.",
-    author: 'Aïcha D.',
-    role: 'Responsable qualité',
-    avatar: 'https://i.pravatar.cc/150?img=1',
-  },
-  {
-    quote:
-      "Le rythme adapté et les quiz m'ont permis de valider le parcours Maintenance en un mois. Le certificat est reconnu par mon employeur.",
-    author: 'Moussa K.',
-    role: 'Technicien maintenance',
-    avatar: 'https://i.pravatar.cc/150?img=12',
-  },
-  {
-    quote:
-      'Plateforme claire, formateurs experts. La meilleure décision pour mon évolution vers un poste en production.',
-    author: 'Sophie T.',
-    role: "Chef d'équipe",
-    avatar: 'https://i.pravatar.cc/150?img=5',
-  },
-];
-
-const STAR_VALUES = [1, 2, 3, 4, 5] as const;
-
-function formatCompactNumber(n: number) {
-  return new Intl.NumberFormat('fr-FR').format(n);
-}
-
-function useCountUp(target: number, durationMs: number, enabled: boolean) {
-  const [value, setValue] = useState(0);
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!enabled) {
-      setValue(target);
-      return;
-    }
-
-    const start = performance.now();
-    const from = 0;
-
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / durationMs);
-      // easeOutCubic
-      const eased = 1 - Math.pow(1 - t, 3);
-      const next = Math.round(from + (target - from) * eased);
-      setValue(next);
-      if (t < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [durationMs, enabled, target]);
-
-  return value;
-}
-
-function MetricCard({
-  metric,
-  index,
-}: Readonly<{
-  metric: (typeof KEY_METRICS)[number];
-  index: number;
-}>) {
-  const reduce = useReducedMotion();
-  const v = useCountUp(metric.value, 900 + index * 120, !reduce);
-  const Icon = metric.icon;
-
-  return (
-    <motion.div
-      whileHover={reduce ? undefined : { y: -6 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-      className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6 text-center"
-    >
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-facam-yellow/10 blur-3xl" />
-      <div className="mx-auto inline-flex size-12 items-center justify-center rounded-2xl bg-white/10 text-facam-yellow">
-        <Icon className="size-6" aria-hidden />
-      </div>
-      <p className="mt-4 text-3xl font-bold tracking-tight text-white">
-        {formatCompactNumber(v)}
-        <span className="text-white/90">{metric.suffix}</span>
-      </p>
-      <p className="mt-1 text-sm font-medium text-white/70">{metric.label}</p>
-      <div className="mt-4 h-px w-full bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-      <p className="mt-3 text-xs font-semibold text-white/60">
-        Mesurez votre progression, pas juste le temps passé.
-      </p>
-    </motion.div>
-  );
-}
 
 function SafeImage({
   src,
@@ -404,48 +307,24 @@ export function HomeLanding() {
             <Reveal>
               <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80">
                 <span className="h-1.5 w-1.5 rounded-full bg-facam-yellow" aria-hidden />
-                <span>FACAM ACADEMIA · Plateforme e-learning industrie</span>
+                <span>FACAM ACADEMIA · Plateforme e-learning industrielle</span>
               </div>
             </Reveal>
 
             <Reveal delay={0.08}>
               <h1 className="mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Apprenez les métiers de l&apos;industrie
+                Le canal par lequel
                 <br />
-                <span className="text-facam-yellow">comme dans un vrai campus.</span>
+                <span className="text-facam-yellow">explose votre talent !</span>
               </h1>
             </Reveal>
 
             <Reveal delay={0.14}>
               <p className="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-white/75 sm:text-base">
-                FACAM ACADEMIA est une plateforme e-learning dédiée aux jeunes diplômés pour
-                approfondir leurs compétences dans l’industrie des produits d’hygiène et
-                d’emballage. Apprenez en ligne, validez votre certificat, puis passez au terrain
-                avec un test sur place et une mise en pratique concrète.
+                FACAM ACADEMIA est une plateforme d’apprentissage en ligne conçue pour permettre aux
+                jeunes diplômés de développer des compétences clés dans l’industrie de l’hygiène et
+                de l’emballage.
               </p>
-            </Reveal>
-
-            <Reveal delay={0.2}>
-              <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-                <Link href="/login" className="inline-flex">
-                  <Button
-                    size="lg"
-                    variant="accent"
-                    className="rounded-full bg-facam-yellow px-8 text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0"
-                  >
-                    Connexion <ArrowRight />
-                  </Button>
-                </Link>
-                <Link href="#programmes" className="inline-flex">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="rounded-full border-white/35 text-white hover:bg-white/10 hover:text-white focus-visible:ring-white/60"
-                  >
-                    Découvrir
-                  </Button>
-                </Link>
-              </div>
             </Reveal>
           </div>
         </div>
@@ -488,11 +367,11 @@ export function HomeLanding() {
                 Ce que vous apprendrez
               </p>
               <h2 className="mt-2 text-3xl font-bold text-facam-dark">
-                Construisez des compétences prêtes pour l&apos;emploi.
+                Développez des compétences directement opérationnelles sur le marché
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-gray-600 sm:text-base">
-                Nos parcours vous aident à passer de la théorie à la pratique, avec des modules
-                courts, des cas concrets et des évaluations régulières pour valider vos acquis.
+                Passez de la théorie à la pratique grâce à des modules courts, des cas concrets et
+                des évaluations régulières pour valider vos acquis.
               </p>
 
               <div className="mt-6 space-y-4">
@@ -649,209 +528,6 @@ export function HomeLanding() {
         </div>
       </SectionShell>
 
-      {/* Formations — catégories + highlights (plus vivant) */}
-      <SectionShell className="bg-white py-20">
-        <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 md:p-12">
-          <div className="pointer-events-none absolute -right-28 -top-28 h-72 w-72 rounded-full bg-facam-yellow/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-facam-blue/10 blur-3xl" />
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.05]"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.55) 1px, transparent 0)',
-              backgroundSize: '22px 22px',
-            }}
-            aria-hidden
-          />
-
-          <Reveal>
-            <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-2xl">
-                <p className="text-sm font-semibold text-facam-blue">Formations</p>
-                <h2 className="mt-2 text-3xl font-bold text-facam-dark">
-                  Un parcours complet, du e-learning à la pratique terrain
-                </h2>
-                <p className="mt-3 text-gray-600 leading-relaxed">
-                  Sur FACAM ACADEMIA, vous apprenez d’abord en ligne (vidéos, quiz, ressources) et
-                  validez votre certificat. Ensuite, vous passez un test sur place, puis vous
-                  démarrez une période de mise en pratique concrète pour transformer vos acquis en
-                  compétences opérationnelles.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link href="#programmes">
-                  <Button variant="accent">
-                    Voir les parcours <ArrowRight />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.06}>
-            <div className="relative z-10 mt-10">
-              <div className="relative rounded-3xl border border-gray-200 bg-white/70 px-6 py-8 shadow-sm md:px-10">
-                {/* Ligne de timeline (desktop: au centre / mobile: à gauche) */}
-                <div
-                  className="pointer-events-none absolute inset-y-8 left-5 w-px bg-gradient-to-b from-transparent via-facam-blue/25 to-transparent md:left-1/2 md:-translate-x-1/2"
-                  aria-hidden
-                />
-
-                {[
-                  {
-                    k: '1',
-                    title: 'Parcours e-learning',
-                    desc: 'Modules structurés, vidéos, quiz et ressources pour progresser étape par étape.',
-                    icon: BookOpen,
-                  },
-                  {
-                    k: '2',
-                    title: 'Certificat FACAM',
-                    desc: 'Validation en fin de parcours pour attester des compétences acquises.',
-                    icon: Award,
-                  },
-                  {
-                    k: '3',
-                    title: 'Test sur place',
-                    desc: 'Évaluation en présentiel pour confirmer la maîtrise et préparer la suite.',
-                    icon: CheckCircle2,
-                  },
-                  {
-                    k: '4',
-                    title: 'Mise en pratique',
-                    desc: 'Période d’application concrète sur site pour devenir opérationnel.',
-                    icon: Sparkles,
-                  },
-                ].map((step, idx) => {
-                  const Icon = step.icon;
-                  const isRight = idx % 2 === 1;
-                  let initialX = 0;
-                  if (!reduce) initialX = isRight ? 24 : -24;
-                  const initial = reduce ? false : { opacity: 0, y: 14, x: initialX };
-
-                  return (
-                    <motion.div
-                      key={step.k}
-                      initial={initial}
-                      whileInView={reduce ? undefined : { opacity: 1, y: 0, x: 0 }}
-                      viewport={{ once: true, amount: 0.35 }}
-                      transition={{ duration: 0.55, ease: 'easeOut', delay: idx * 0.06 }}
-                      className="relative grid grid-cols-1 gap-4 py-6 md:grid-cols-2 md:gap-10"
-                    >
-                      {/* Colonne gauche (desktop) */}
-                      <div className={isRight ? 'md:col-start-1 md:col-end-2 md:text-right' : ''}>
-                        {!isRight && (
-                          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
-                            <div className="flex items-start gap-3 md:flex-row-reverse md:justify-end">
-                              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
-                                <Icon className="size-5" aria-hidden />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold text-facam-dark">
-                                  {step.k}) {step.title}
-                                </p>
-                                <p className="mt-1 text-sm text-gray-600 leading-relaxed">
-                                  {step.desc}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Colonne droite (desktop) */}
-                      <div className={isRight ? '' : 'md:col-start-2 md:col-end-3'}>
-                        {isRight && (
-                          <div className="rounded-2xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-200">
-                            <div className="flex items-start gap-3">
-                              <div className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-facam-blue-tint text-facam-blue">
-                                <Icon className="size-5" aria-hidden />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold text-facam-dark">
-                                  {step.k}) {step.title}
-                                </p>
-                                <p className="mt-1 text-sm text-gray-600 leading-relaxed">
-                                  {step.desc}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Marker */}
-                      <div className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 md:left-1/2 md:-translate-x-1/2">
-                        <motion.div
-                          initial={reduce ? false : { scale: 0.95, opacity: 0.9 }}
-                          animate={reduce ? undefined : { scale: [1, 1.06, 1], opacity: [1, 1, 1] }}
-                          transition={{
-                            duration: 2.2,
-                            ease: 'easeInOut',
-                            repeat: reduce ? 0 : Infinity,
-                            delay: idx * 0.15,
-                          }}
-                          className="grid size-9 place-items-center rounded-xl bg-facam-blue text-white shadow-facam"
-                        >
-                          <span className="text-sm font-extrabold">{step.k}</span>
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </Reveal>
-
-          {/* Cartes de catégories supprimées à la demande */}
-        </div>
-      </SectionShell>
-
-      {/* Chiffres clés — version premium + animation */}
-      <section className="relative overflow-hidden bg-facam-dark py-20 text-white">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-28 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-facam-yellow/12 blur-3xl" />
-          <div className="absolute -bottom-36 -left-28 h-[520px] w-[520px] rounded-full bg-facam-blue-mid/45 blur-3xl" />
-          <div
-            className="absolute inset-0 opacity-[0.07]"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.55) 1px, transparent 0)',
-              backgroundSize: '24px 24px',
-            }}
-            aria-hidden
-          />
-        </div>
-
-        <div className="container-custom relative z-10">
-          <Reveal>
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="text-sm font-semibold text-white/70">Impact & communauté</p>
-              <h2 className="mt-2 text-3xl font-bold">Nos chiffres clés</h2>
-              <p className="mt-3 text-white/75">
-                Une plateforme pensée pour apprendre vite, progresser, et valoriser des compétences
-                concrètes.
-              </p>
-            </div>
-          </Reveal>
-
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {KEY_METRICS.map((m, idx) => (
-              <Reveal key={m.label} delay={0.05 * idx}>
-                <MetricCard metric={m} index={idx} />
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal delay={0.15}>
-            <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-white/55">
-              Données indicatives (évoluent avec la communauté). Les statistiques exactes sont
-              recalculées au fil des inscriptions et validations.
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
       {/* Programmes — cartes inspirées "valeur ajoutée" + courses */}
       <SectionShell id="programmes" className="bg-white py-20">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
@@ -904,59 +580,7 @@ export function HomeLanding() {
                   <p className="mt-2 text-sm text-gray-600 leading-relaxed">{p.description}</p>
                   <div className="mt-5 flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-500">Certificat inclus</span>
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center gap-2 text-sm font-bold text-facam-blue"
-                    >
-                      Voir <ArrowRight className="size-4" />
-                    </Link>
                   </div>
-                </div>
-              </motion.div>
-            </Reveal>
-          ))}
-        </div>
-      </SectionShell>
-
-      {/* Témoignages — avis de nos apprenants (fond clair, cartes premium) */}
-      <SectionShell className="bg-gray-50 py-20">
-        <Reveal>
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold text-facam-dark">Avis de nos apprenants</h2>
-            <p className="mt-3 text-gray-600">
-              Des retours concrets sur l’impact des parcours, la clarté de la plateforme et
-              l’accompagnement proposé.
-            </p>
-          </div>
-        </Reveal>
-
-        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {TESTIMONIALS.map((t, idx) => (
-            <Reveal key={t.author} delay={0.08 * idx}>
-              <motion.div
-                whileHover={reduce ? undefined : { y: -8 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-                className="h-full rounded-3xl border border-gray-200 bg-white p-7 text-left shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative size-11 overflow-hidden rounded-full bg-gray-100">
-                      <SafeImage src={t.avatar} alt="" fill className="object-cover" sizes="44px" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-facam-dark">{t.author}</p>
-                      <p className="text-sm text-gray-500">{t.role}</p>
-                    </div>
-                  </div>
-                  <Quote className="size-8 text-facam-yellow/80" aria-hidden />
-                </div>
-                <p className="mt-4 text-sm text-gray-700 leading-relaxed">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="mt-4 flex items-center gap-1 text-facam-yellow">
-                  {STAR_VALUES.map((v) => (
-                    <Star key={v} className="size-4 fill-current" aria-hidden />
-                  ))}
                 </div>
               </motion.div>
             </Reveal>

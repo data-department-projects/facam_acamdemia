@@ -51,7 +51,7 @@ export function StudentTrainingCarousel(
           'Maintenance, production, QHSE… des modules orientés usine pour mieux réussir la transition vers le monde professionnel.',
       },
       {
-        imageSrc: '/dernieregen.jpg',
+        imageSrc: '/derniergeneration.png',
         kicker: 'FACAM STAIRWAY',
         title: 'Machines de dernière génération',
         description:

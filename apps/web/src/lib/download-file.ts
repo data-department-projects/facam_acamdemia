@@ -44,23 +44,43 @@ export function buildDownloadFilename(opts: {
   return `${base}.${ext}`;
 }
 
+function triggerDirectDownload(url: string, filename: string): void {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 export async function downloadFileFromUrl(url: string, filename: string): Promise<void> {
-  const res = await fetch(url, { method: 'GET' });
-  if (!res.ok) {
-    throw new Error(`Téléchargement impossible (HTTP ${res.status}).`);
-  }
-  const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
   try {
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filename;
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    // Laisse un petit délai pour les navigateurs lents avant de révoquer l'URL.
-    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      throw new Error(`Téléchargement impossible (HTTP ${res.status}).`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    }
+  } catch (e) {
+    // En production, un téléchargement cross-origin peut échouer côté navigateur (CORS).
+    // Dans ce cas, on déclenche un téléchargement “direct” via navigation (pas soumis au CORS).
+    if (e instanceof TypeError) {
+      triggerDirectDownload(url, filename);
+      return;
+    }
+    throw e;
   }
 }

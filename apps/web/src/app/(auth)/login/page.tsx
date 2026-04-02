@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -37,6 +37,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [idleLogout, setIdleLogout] = useState(false);
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('reason');
+    setIdleLogout(reason === 'idle');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -109,13 +115,18 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-facam-dark">Connectez - Vous</h2>
-        <p className="mt-2 text-gray-600">Connectez-vous pour continuer votre apprentissage.</p>
+        <h2 className="text-3xl font-bold text-facam-dark">Se connecter</h2>
       </div>
+
+      {idleLogout && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Votre session a été fermée après 15 minutes sans activité. Veuillez vous reconnecter.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5" suppressHydrationWarning>
         <Input
-          label="Email professionnel"
+          label="Email"
           type="email"
           placeholder="ex: jean.dupont@entreprise.com"
           value={email}

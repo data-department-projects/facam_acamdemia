@@ -17,7 +17,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET') ?? 'cle-secret-facam-dev',
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN') ?? '7d' },
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m',
+        },
       }),
       inject: [ConfigService],
     }),

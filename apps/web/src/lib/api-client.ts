@@ -55,6 +55,52 @@ export function clearAccessToken(): void {
 interface RequestConfig extends Omit<RequestInit, 'body'> {
   body?: Record<string, unknown> | FormData;
   token?: string | null;
+  /** Évite une boucle si le refresh renvoie encore 401. */
+  _retriedAfterRefresh?: boolean;
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/**
+ * Obtient un nouveau JWT via le cookie httpOnly `facam_refresh` (une requête à la fois).
+ */
+export async function tryRefreshAccessToken(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!res.ok) return false;
+        const data = (await res.json()) as { accessToken?: string };
+        if (typeof data.accessToken === 'string' && data.accessToken.length > 0) {
+          setAccessToken(data.accessToken);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+/** Révoque le refresh côté API et efface le cookie (à appeler avant de vider le localStorage). */
+export async function logoutRefreshSession(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // déconnexion best-effort
+  }
 }
 
 /**
@@ -76,7 +122,7 @@ function normalizeNetworkError(error: unknown): Error {
  * Gère les erreurs réseau (Failed to fetch) et les réponses non-JSON.
  */
 export async function apiRequest<T>(path: string, config: RequestConfig = {}): Promise<T> {
-  const { body, token, headers: customHeaders, ...rest } = config;
+  const { body, token, headers: customHeaders, _retriedAfterRefresh, ...rest } = config;
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
   const headers: Record<string, string> = {
     ...(customHeaders as Record<string, string>),
@@ -94,13 +140,18 @@ export async function apiRequest<T>(path: string, config: RequestConfig = {}): P
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
+  const fetchInit: RequestInit = {
+    ...rest,
+    headers,
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+  };
+  if (typeof window !== 'undefined') {
+    fetchInit.credentials = 'include';
+  }
+
   let res: Response;
   try {
-    res = await fetch(url, {
-      ...rest,
-      headers,
-      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    });
+    res = await fetch(url, fetchInit);
   } catch (e) {
     throw normalizeNetworkError(e);
   }
@@ -114,6 +165,22 @@ export async function apiRequest<T>(path: string, config: RequestConfig = {}): P
   }
 
   if (!res.ok) {
+    const pathLower = path.toLowerCase();
+    const canTryRefresh =
+      typeof window !== 'undefined' &&
+      !_retriedAfterRefresh &&
+      res.status === 401 &&
+      !pathLower.includes('/auth/login') &&
+      !pathLower.includes('/auth/refresh') &&
+      !pathLower.includes('/auth/logout');
+
+    if (canTryRefresh && (await tryRefreshAccessToken())) {
+      return apiRequest<T>(path, {
+        ...config,
+        _retriedAfterRefresh: true,
+      });
+    }
+
     const message =
       typeof (data as { message?: string | string[] }).message === 'string'
         ? (data as { message: string }).message
