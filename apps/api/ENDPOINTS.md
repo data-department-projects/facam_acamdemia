@@ -15,11 +15,13 @@ Les routes protégées nécessitent l’en-tête : `Authorization: Bearer <acces
 
 ## Auth (`/auth`)
 
-| Méthode | Route         | Auth | Description                                                                         |
-| ------- | ------------- | ---- | ----------------------------------------------------------------------------------- |
-| POST    | `/auth/login` | Non  | Connexion (email, password). Retourne `accessToken` + `user` (dont `firstLoginAt`). |
-| GET     | `/auth/me`    | JWT  | Profil courant (dont `firstLoginAt`).                                               |
-| GET     | `/auth/test`  | Non  | Smoke test du module.                                                               |
+| Méthode | Route           | Auth | Description                                                                                                                          |
+| ------- | --------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| POST    | `/auth/login`   | Non  | Connexion (email, password). Retourne `accessToken` + `user` ; pose aussi un cookie httpOnly `facam_refresh` pour renouveler le JWT. |
+| POST    | `/auth/refresh` | Non  | Renouvelle `accessToken` si le cookie `facam_refresh` est valide (rotation du refresh).                                              |
+| POST    | `/auth/logout`  | Non  | Révoque le refresh en base et supprime le cookie `facam_refresh`.                                                                    |
+| GET     | `/auth/me`      | JWT  | Profil courant (dont `firstLoginAt`).                                                                                                |
+| GET     | `/auth/test`    | Non  | Smoke test du module.                                                                                                                |
 
 ---
 
@@ -114,20 +116,12 @@ Les routes protégées nécessitent l’en-tête : `Authorization: Bearer <acces
 
 ---
 
-## Discussions (`/discussions`)
-
-| Méthode | Route                           | Auth | Description                                                             |
-| ------- | ------------------------------- | ---- | ----------------------------------------------------------------------- |
-| GET     | `/discussions/module/:moduleId` | Non  | Liste des questions/réponses d’un module.                               |
-| POST    | `/discussions/module/:moduleId` | JWT  | Créer une question ou réponse (body : `content`, optionnel `parentId`). |
-| GET     | `/discussions/test`             | Non  | Smoke test.                                                             |
-
----
-
 ## Variables d’environnement
 
 - `DATABASE_URL` : connexion PostgreSQL (Prisma).
 - `JWT_SECRET` : clé pour signer les tokens (défaut : `cle-secret-facam-dev`).
-- `JWT_EXPIRES_IN` : expiration du token (défaut : `7d`).
+- `JWT_ACCESS_EXPIRES_IN` : durée de vie du JWT d’accès (défaut : `15m`). Le cookie refresh prolonge la session tant que l’appelant reste actif.
+- `REFRESH_TOKEN_DAYS` : durée de vie du cookie refresh (défaut : `30`).
+- `AUTH_REFRESH_SAMESITE` : `lax` (défaut) ou `none`. Pour **Vercel + Railway** (domaines différents), mettre **`none`** (HTTPS obligatoire sur l’API).
 - `PORT` : port du serveur (défaut : 3001).
 - `CORS_ORIGIN` : origine(s) CORS (défaut : `true` = toute origine).

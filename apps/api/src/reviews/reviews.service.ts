@@ -2,7 +2,12 @@
  * Service des avis (notation étoiles) sur un module.
  */
 
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateReviewDto } from './dto/create-review.dto';
 
@@ -14,6 +19,15 @@ export class ReviewsService {
     const module_ = await this.prisma.module.findUnique({ where: { id: moduleId } });
     if (!module_) {
       throw new NotFoundException('Module introuvable');
+    }
+    const certificate = await this.prisma.certificate.findFirst({
+      where: { moduleId, userId },
+      select: { id: true },
+    });
+    if (!certificate) {
+      throw new ForbiddenException(
+        'Vous pourrez laisser un avis uniquement après avoir terminé le module et obtenu votre certificat.'
+      );
     }
     const existe = await this.prisma.review.findFirst({
       where: { userId, moduleId },

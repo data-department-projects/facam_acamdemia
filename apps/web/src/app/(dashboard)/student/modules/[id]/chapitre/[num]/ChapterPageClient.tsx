@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { FileText } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,7 +17,6 @@ import { Modal } from '@/components/ui/Modal';
 import { ModuleCourseSidebar } from '@/components/student/ModuleCourseSidebar';
 import { ChapterVideoAndQuiz } from '@/components/student/ChapterVideoAndQuiz';
 import { ModuleCommentsSection } from '@/components/student/ModuleCommentsSection';
-import { ModuleDiscussionsSection } from '@/components/student/ModuleDiscussionsSection';
 import { api } from '@/lib/api-client';
 import { buildDownloadFilename, downloadFileFromUrl } from '@/lib/download-file';
 
@@ -199,10 +198,11 @@ export function ChapterPageClient({
       const res = await api.get<{ url: string }>(
         `/chapitres/items/${itemId}/document-download-url`
       );
-      if (res?.url) {
-        const filename = buildDownloadFilename({ label, url: res.url, fallbackExt: 'pdf' });
-        await downloadFileFromUrl(res.url, filename);
-      }
+      if (!res?.url) return;
+      const filename = buildDownloadFilename({ label, url: res.url, fallbackExt: 'pdf' });
+      await downloadFileFromUrl(res.url, filename);
+    } catch {
+      // Best-effort: on évite d'ajouter une UI d'erreur visible (demande produit).
     } finally {
       setDownloadingItemId((prev) => (prev === itemId ? null : prev));
     }
@@ -553,9 +553,14 @@ export function ChapterPageClient({
                       <span className="min-w-0 flex-1 truncate font-medium text-slate-900">
                         {doc.label}
                       </span>
-                      <span className="text-sm font-semibold text-facam-blue">
-                        {downloadingItemId === doc.itemId ? 'Téléchargement…' : 'Télécharger'}
-                      </span>
+                      {downloadingItemId === doc.itemId ? (
+                        <Loader2
+                          className="size-5 animate-spin text-facam-yellow"
+                          aria-label="Téléchargement…"
+                        />
+                      ) : (
+                        <Download className="size-5 text-facam-yellow" aria-hidden />
+                      )}
                     </button>
                   ))
                 )}
@@ -591,8 +596,16 @@ export function ChapterPageClient({
               )}
             </div>
 
-            <ModuleCommentsSection moduleId={moduleId} />
-            <ModuleDiscussionsSection moduleId={moduleId} />
+            {isCertified ? (
+              <ModuleCommentsSection moduleId={moduleId} />
+            ) : (
+              <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-semibold text-slate-900">Commentaires et avis</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Disponible après avoir terminé le module et obtenu votre certificat.
+                </p>
+              </div>
+            )}
           </div>
 
           <aside className="lg:col-span-4">

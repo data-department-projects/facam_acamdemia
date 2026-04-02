@@ -7,11 +7,14 @@ import {
   Post,
   Body,
   Get,
+  Req,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthService } from './auth.service';
@@ -29,11 +32,30 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   /**
-   * Connexion : retourne un JWT et les infos utilisateur (dont firstLoginAt pour le compte à rebours).
+   * Connexion : retourne un JWT d’accès court + pose un refresh httpOnly pour renouvellement sans ré‑identification.
    */
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.seConnecter(loginDto);
+  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+    const data = await this.authService.seConnecter(loginDto);
+    await this.authService.createRefreshSession(res, data.user.id);
+    return data;
+  }
+
+  /**
+   * Renouvelle le JWT d’accès à partir du cookie refresh (appelé par le client après expiration du bearer).
+   */
+  @Post('refresh')
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    return this.authService.refreshWithCookie(req, res);
+  }
+
+  /**
+   * Invalide le refresh côté serveur et supprime le cookie (logout explicite ou inactivité).
+   */
+  @Post('logout')
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    await this.authService.logoutRefresh(req, res);
+    return { ok: true };
   }
 
   /**

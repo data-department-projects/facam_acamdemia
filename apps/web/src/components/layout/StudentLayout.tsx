@@ -8,6 +8,15 @@
 import Link from 'next/link';
 import { StudentHeader } from '@/components/layout/StudentHeader';
 import { CountdownBanner } from '@/components/student/CountdownBanner';
+import { useStudentIdleLogout } from '@/hooks/useStudentIdleLogout';
+
+/**
+ * Active la déconnexion après inactivité sans rendre de DOM (hook seulement).
+ */
+function StudentIdleSessionGuard() {
+  useStudentIdleLogout();
+  return null;
+}
 
 export function StudentLayout({
   children,
@@ -24,6 +33,7 @@ export function StudentLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <StudentIdleSessionGuard />
       <StudentHeader user={user} />
       <CountdownBanner
         firstLoginAt={user.firstLoginAt ?? null}

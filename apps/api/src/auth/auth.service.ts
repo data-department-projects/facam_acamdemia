@@ -10,12 +10,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
+import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { AppStorageService } from '../storage/app-storage.service';
 import type { LoginDto } from './dto/login.dto';
 import type { UtilisateurPayload } from '../core/decorators/current-user.decorator';
+import { FACAM_REFRESH_COOKIE } from './refresh.constants';
 
 /** Fichier mémoire Multer (évite la dépendance stricte à @types/express/multer). */
 export interface FichierAvatarUpload {
@@ -44,6 +48,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly appStorage: AppStorageService
   ) {}
@@ -90,7 +95,7 @@ export class AuthService {
       role: utilisateurAvecDate.role,
       fullName: utilisateurAvecDate.fullName,
     };
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload, { expiresIn: this.accessExpiresIn() });
     return {
       accessToken,
       user: {
@@ -275,5 +280,140 @@ export class AuthService {
       return false;
     }
     return bcrypt.compare(motDePasseClair, hash);
+  }
+
+  /** Durée du bearer uniquement ; le refresh cookie prolonge la session si l’utilisateur est actif. */
+  private accessExpiresIn(): string {
+    return this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') ?? '15m';
+  }
+
+  private refreshDays(): number {
+    const n = Number(this.configService.get<string>('REFRESH_TOKEN_DAYS') ?? 30);
+    return Number.isFinite(n) && n > 0 ? n : 30;
+  }
+
+  private hashRefresh(raw: string): string {
+    return createHash('sha256').update(raw, 'utf8').digest('hex');
+  }
+
+  /**
+   * Front Vercel + API Railway = origines différentes → `AUTH_REFRESH_SAMESITE=none` + HTTPS obligatoire.
+   * Front et API sur le même site (ex. app. et api. même domaine) → `lax` suffit souvent.
+   */
+  private refreshCookieSameSite(): 'lax' | 'none' | 'strict' {
+    const raw = (this.configService.get<string>('AUTH_REFRESH_SAMESITE') ?? 'lax').toLowerCase();
+    if (raw === 'none' || raw === 'strict') return raw;
+    return 'lax';
+  }
+
+  /** `SameSite=None` impose `Secure=true` (navigateurs). */
+  private refreshCookieSecure(sameSite: 'lax' | 'none' | 'strict'): boolean {
+    if (sameSite === 'none') return true;
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  private setRefreshCookie(res: Response, raw: string, maxAgeDays: number): void {
+    const sameSite = this.refreshCookieSameSite();
+    const secure = this.refreshCookieSecure(sameSite);
+    res.cookie(FACAM_REFRESH_COOKIE, raw, {
+      httpOnly: true,
+      secure,
+      sameSite,
+      path: '/',
+      maxAge: maxAgeDays * 24 * 60 * 60 * 1000,
+    });
+  }
+
+  private clearRefreshCookie(res: Response): void {
+    const sameSite = this.refreshCookieSameSite();
+    const secure = this.refreshCookieSecure(sameSite);
+    res.clearCookie(FACAM_REFRESH_COOKIE, {
+      path: '/',
+      httpOnly: true,
+      secure,
+      sameSite,
+    });
+  }
+
+  /**
+   * Crée un refresh token (rotation à chaque nouvelle session navigateur).
+   * Un seul refresh actif par compte évite l’accumulation de sessions zombies.
+   */
+  async createRefreshSession(res: Response, userId: string): Promise<void> {
+    const days = this.refreshDays();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + days);
+
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    const raw = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashRefresh(raw);
+    await this.prisma.refreshToken.create({
+      data: { userId, tokenHash, expiresAt },
+    });
+    this.setRefreshCookie(res, raw, days);
+  }
+
+  /**
+   * Émet un nouveau JWT d’accès si le cookie refresh est valide ; rotation du refresh.
+   */
+  async refreshWithCookie(req: Request, res: Response): Promise<{ accessToken: string }> {
+    const raw = req.cookies[FACAM_REFRESH_COOKIE] as string | undefined;
+    if (!raw) {
+      this.clearRefreshCookie(res);
+      throw new UnauthorizedException('Session expirée');
+    }
+    const tokenHash = this.hashRefresh(raw);
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: { select: { id: true, email: true, role: true, fullName: true } },
+      },
+    });
+    if (!row || row.revokedAt || row.expiresAt <= new Date()) {
+      await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+      this.clearRefreshCookie(res);
+      throw new UnauthorizedException('Session expirée');
+    }
+
+    const days = this.refreshDays();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + days);
+    const newRaw = randomBytes(32).toString('base64url');
+    const newHash = this.hashRefresh(newRaw);
+
+    await this.prisma.$transaction([
+      this.prisma.refreshToken.delete({ where: { id: row.id } }),
+      this.prisma.refreshToken.create({
+        data: {
+          userId: row.userId,
+          tokenHash: newHash,
+          expiresAt,
+        },
+      }),
+    ]);
+
+    this.setRefreshCookie(res, newRaw, days);
+
+    const payload: UtilisateurPayload = {
+      sub: row.user.id,
+      email: row.user.email,
+      role: row.user.role,
+      fullName: row.user.fullName,
+    };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: this.accessExpiresIn() });
+    return { accessToken };
+  }
+
+  /**
+   * Révoque le refresh (logout navigateur ou inactivité côté client).
+   */
+  async logoutRefresh(req: Request, res: Response): Promise<void> {
+    const raw = req.cookies[FACAM_REFRESH_COOKIE] as string | undefined;
+    if (raw) {
+      const tokenHash = this.hashRefresh(raw);
+      await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+    }
+    this.clearRefreshCookie(res);
   }
 }

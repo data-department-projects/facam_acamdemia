@@ -18,13 +18,13 @@ model User {
   firstLoginAt   DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  discussions    Discussion[]
   enrollments    Enrollment[]
   gradedAttempts FinalQuizGrade[] @relation("Grader")
   managedModule  Module?          @relation("ModuleManager")
   quizAttempts   QuizAttempt[]
   reviews        Review[]
   supportFeedbacks SupportFeedback[]
+  refreshTokens  RefreshToken[]
 }
 
 model PasswordResetOtp {
@@ -59,7 +59,6 @@ model Module {
   certificates        Certificate[]
   chapters            Chapter[]
   courses             Course[]
-  discussions         Discussion[]
   enrollments         Enrollment[]
   manager             User?         @relation("ModuleManager", fields: [managerId], references: [id])
   quizzes             Quiz[]
@@ -222,17 +221,17 @@ model Review {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model Discussion {
-  id        String       @id @default(cuid())
-  moduleId  String
+/** Jeton opaque (hash stocké) pour renouveler le JWT d’accès ; révoqué au logout / inactivité. */
+model RefreshToken {
+  id        String    @id @default(cuid())
   userId    String
-  parentId  String?
-  content   String
-  createdAt DateTime     @default(now())
-  module    Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  parent    Discussion?  @relation("DiscussionReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Discussion[] @relation("DiscussionReplies")
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model SupportFeedback {
