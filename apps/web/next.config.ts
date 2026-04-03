@@ -2,6 +2,15 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 const nextConfig: NextConfig = {
+  /**
+   * Inclut le PNG du logo pour les routes `icon` / `apple-icon` qui utilisent `readFile` (déploiement serverless).
+   */
+  experimental: {
+    outputFileTracingIncludes: {
+      '/icon': ['./public/Facam Academia-02-02 2.png'],
+      '/apple-icon': ['./public/Facam Academia-02-02 2.png'],
+    },
+  },
   transpilePackages: ['@facam-academia/shared'],
   /**
    * Évite les erreurs runtime du type
