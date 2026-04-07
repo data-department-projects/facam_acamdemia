@@ -4,12 +4,11 @@ import path from 'path';
 const nextConfig: NextConfig = {
   /**
    * Inclut le PNG du logo pour les routes `icon` / `apple-icon` qui utilisent `readFile` (déploiement serverless).
+   * Option stable au niveau racine depuis Next.js 15 (plus sous `experimental`).
    */
-  experimental: {
-    outputFileTracingIncludes: {
-      '/icon': ['./public/Facam Academia-02-02 2.png'],
-      '/apple-icon': ['./public/Facam Academia-02-02 2.png'],
-    },
+  outputFileTracingIncludes: {
+    '/icon': ['./public/Facam Academia-02-02 2.png'],
+    '/apple-icon': ['./public/Facam Academia-02-02 2.png'],
   },
   transpilePackages: ['@facam-academia/shared'],
   /**

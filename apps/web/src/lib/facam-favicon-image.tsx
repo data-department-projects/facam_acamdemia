@@ -27,7 +27,8 @@ export async function createFacamLogoFaviconResponse(px: number): Promise<ImageR
         background: '#ffffff',
       }}
     >
-      {/* img utilisé par Satori (moteur de ImageResponse), pas par le navigateur */}
+      {/* Satori / ImageResponse exige <img>, pas next/image (rendu côté serveur, pas LCP navigateur). */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- ImageResponse (next/og) */}
       <img
         src={dataUri}
         alt=""

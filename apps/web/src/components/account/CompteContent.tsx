@@ -8,11 +8,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Mail, Shield, Calendar, ArrowLeft, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { API_BASE, getAccessToken } from '@/lib/api-client';
 import type { StoredUser } from '@/lib/auth';
+import { signOutFullClient } from '@/lib/auth';
 import { UserAvatar } from '@/components/account/UserAvatar';
 import { AvatarUploader } from '@/components/account/AvatarUploader';
 
@@ -39,6 +41,7 @@ function formatDate(iso: string | null | undefined) {
 }
 
 export function CompteContent({ backHref, homeHref, roleLabel }: CompteContentProps) {
+  const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [mounted, setMounted] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -125,6 +128,12 @@ export function CompteContent({ backHref, homeHref, roleLabel }: CompteContentPr
     } finally {
       setPwdLoading(false);
     }
+  };
+
+  const canShowLogout = user.role === 'student' || user.role === 'employee';
+  const handleLogout = async () => {
+    await signOutFullClient();
+    router.replace('/');
   };
 
   return (
@@ -268,9 +277,15 @@ export function CompteContent({ backHref, homeHref, roleLabel }: CompteContentPr
             <Link href={homeHref}>
               <Button variant="primary">Retour au tableau de bord</Button>
             </Link>
-            <Link href="/login">
-              <Button variant="outline">Changer de compte</Button>
-            </Link>
+            {canShowLogout ? (
+              <Button variant="outline" onClick={() => void handleLogout()}>
+                Déconnexion
+              </Button>
+            ) : (
+              <Link href="/login">
+                <Button variant="outline">Changer de compte</Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>

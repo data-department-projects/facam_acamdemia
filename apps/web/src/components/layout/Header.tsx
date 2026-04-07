@@ -8,9 +8,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, LogOut, Menu, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { UserAvatar } from '@/components/account/UserAvatar';
 import { cn } from '@/lib/utils';
+import { signOutFullClient } from '@/lib/auth';
 
 const LOGO_SRC = '/Facam%20Academia-02-02%202.png';
 
@@ -134,8 +136,13 @@ export function Header(props: Readonly<HeaderProps>) {
 
   const theme = getHeaderTheme(variant);
   const isMarketing = theme.isMarketing;
+  const router = useRouter();
 
   const handleMenuClick = () => onMenuClick?.();
+  const handleLogout = async () => {
+    await signOutFullClient();
+    router.replace('/');
+  };
 
   return (
     <header
@@ -220,7 +227,11 @@ export function Header(props: Readonly<HeaderProps>) {
               </span>
             )}
             <Link
-              href="/login"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                void handleLogout();
+              }}
               className={cn(
                 'inline-flex h-10 w-10 items-center justify-center rounded-lg',
                 theme.logoutButton

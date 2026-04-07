@@ -91,7 +91,9 @@ function StudentModuleQuizContent() {
   const nextChapterMatch = nextHref?.match(/\/chapitre\/(\d+)/);
   const derivedFromNext = nextChapterMatch ? Math.max(1, Number(nextChapterMatch[1]) - 1) : null;
   const reviewChapterOrder = chapterOrderIsValid ? parsedChapterOrder : (derivedFromNext ?? 1);
-  const reviewHref = `/student/modules/${moduleId}/chapitre/${reviewChapterOrder}`;
+  // Quand l'utilisateur échoue, "Revoir les ressources" doit ramener vers l'interface chapitre (vidéo + ressources),
+  // sans auto-redirection immédiate vers le quiz si la reprise pointe sur l'item quiz.
+  const reviewHref = `/student/modules/${moduleId}/chapitre/${reviewChapterOrder}?review=1`;
 
   const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
