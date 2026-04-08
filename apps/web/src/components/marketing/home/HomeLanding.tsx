@@ -289,7 +289,14 @@ export function HomeLanding() {
       <section className="relative overflow-hidden">
         {/* Background image */}
         <div className="absolute inset-0">
-          <Image src={HERO_BG_IMAGE} alt="" fill priority sizes="100vw" className="object-cover" />
+          <Image
+            src={HERO_BG_IMAGE}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-top"
+          />
           {/* Overlay charte FACAM (bleu/dark) pour garantir la lisibilité */}
           <div className="absolute inset-0 bg-facam-dark/65" aria-hidden />
           <div
@@ -302,7 +309,7 @@ export function HomeLanding() {
           />
         </div>
 
-        <div className="container-custom relative z-10 py-24 sm:py-28 lg:py-32">
+        <div className="container-custom relative z-10 flex min-h-[560px] items-center py-24 sm:min-h-[620px] sm:py-28 lg:min-h-[680px] lg:py-32 2xl:min-h-[760px]">
           <div className="mx-auto max-w-3xl text-center">
             <Reveal>
               <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80">

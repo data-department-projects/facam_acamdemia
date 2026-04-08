@@ -27,3 +27,4 @@ coverage
 **/*.test.tsx
 .siwth
 .swc
+.sixth

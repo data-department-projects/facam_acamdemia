@@ -16,6 +16,8 @@ import {
   FolderOpen,
   BarChart3,
   UserCircle,
+  MessageSquareText,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/types';
@@ -30,12 +32,14 @@ const moduleManagerNav = [
   { href: '/module-manager', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/module-manager/modules', label: 'Cours & contenus', icon: FolderOpen },
   { href: '/module-manager/quiz', label: 'Quiz', icon: FileQuestion },
+  { href: '/module-manager/messages', label: 'Messages', icon: MessageSquareText },
   { href: '/module-manager/stats', label: 'Statistiques', icon: BarChart3 },
   { href: '/module-manager/compte', label: 'Mon compte', icon: UserCircle },
 ];
 
 const adminNav = [
   { href: '/admin', label: 'Dashboard global', icon: LayoutDashboard },
+  { href: '/admin/analytics/learners', label: 'Learners Explorer', icon: Sparkles },
   { href: '/admin/modules', label: 'Gestion des modules', icon: BookOpen },
   { href: '/admin/users', label: 'Gestion utilisateurs', icon: Users },
   { href: '/admin/compte', label: 'Mon compte', icon: UserCircle },
@@ -74,7 +78,7 @@ export interface SidebarProps {
   className?: string;
 }
 
-export function Sidebar({ role, isOpen = true, onClose, className }: SidebarProps) {
+export function Sidebar({ role, isOpen = true, onClose, className }: Readonly<SidebarProps>) {
   const pathname = usePathname();
   const nav = getNavForRole(role);
 
@@ -85,23 +89,18 @@ export function Sidebar({ role, isOpen = true, onClose, className }: SidebarProp
         !isOpen && '-translate-x-full lg:translate-x-0',
         className
       )}
-      role="navigation"
       aria-label="Menu principal"
     >
-      <nav className="flex flex-1 flex-col gap-1 p-4">
+      <nav className="flex flex-1 flex-col gap-1 p-4" aria-label="Navigation principale">
         {nav.map((item) => {
           // Lien actif = celui qui correspond le mieux au path (évite que Dashboard reste bleu sur toute sous-page)
           const exactMatch = pathname === item.href;
           const prefixMatch = item.href !== '/' && pathname.startsWith(item.href + '/');
           const isActive = exactMatch || prefixMatch;
-          const matchLength = exactMatch ? item.href.length : prefixMatch ? item.href.length : 0;
+          const matchLength = exactMatch || prefixMatch ? item.href.length : 0;
           const bestMatch = Math.max(
             ...nav.map((i) =>
-              pathname === i.href
-                ? i.href.length
-                : pathname.startsWith(i.href + '/')
-                  ? i.href.length
-                  : 0
+              pathname === i.href || pathname.startsWith(i.href + '/') ? i.href.length : 0
             )
           );
           const isActiveFinal = isActive && matchLength === bestMatch;

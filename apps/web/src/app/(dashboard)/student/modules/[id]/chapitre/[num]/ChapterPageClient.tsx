@@ -8,7 +8,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Download, FileText, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -76,6 +76,8 @@ export function ChapterPageClient({
   const [dismissedWarningOrder, setDismissedWarningOrder] = useState<number | null>(null);
   const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isReviewMode = searchParams.get('review') === '1';
 
   useEffect(() => {
     let cancelled = false;
@@ -343,6 +345,7 @@ export function ChapterPageClient({
 
   // Si l'utilisateur s'était arrêté sur le quiz (échec), on le renvoie directement au quiz
   useEffect(() => {
+    if (isReviewMode) return;
     if (!module_ || !chapter) return;
     if (!module_.lastViewedItemId) return;
     if (!quizId || !quizItemId) return;
@@ -353,6 +356,7 @@ export function ChapterPageClient({
       `/student/modules/${moduleId}/quiz?quizId=${encodeURIComponent(quizId)}&next=${encodeURIComponent(nextHref)}&chapterId=${encodeURIComponent(chapter.id)}&chapterOrder=${chapterOrder}&quizItemId=${encodeURIComponent(quizItemId)}`
     );
   }, [
+    isReviewMode,
     module_,
     chapter,
     quizId,

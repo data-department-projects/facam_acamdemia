@@ -9,6 +9,9 @@ const montserrat = Montserrat({
   display: 'swap',
 });
 
+/**
+ * Favicon : `icon.tsx` / `apple-icon.tsx` composent le logo officiel (`public/Facam Academia-02-02 2.png`) en tuile carrée.
+ */
 export const metadata: Metadata = {
   title: 'FACAM ACADEMIA',
   description:
