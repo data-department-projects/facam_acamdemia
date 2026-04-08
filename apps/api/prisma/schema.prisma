@@ -25,6 +25,8 @@ model User {
   reviews        Review[]
   supportFeedbacks SupportFeedback[]
   refreshTokens  RefreshToken[]
+  moduleAnnouncements ModuleAnnouncement[] @relation("AnnouncementAuthor")
+  announcementReads ModuleAnnouncementRead[]
 }
 
 model PasswordResetOtp {
@@ -63,6 +65,7 @@ model Module {
   manager             User?         @relation("ModuleManager", fields: [managerId], references: [id])
   quizzes             Quiz[]
   reviews             Review[]
+  announcements       ModuleAnnouncement[]
 }
 
 model Course {
@@ -250,4 +253,41 @@ model SupportFeedback {
   @@index([createdAt])
   @@index([status])
   @@index([category])
+}
+
+/**
+ * Message broadcasté par un responsable de module vers tous les apprenants inscrits.
+ * Les étudiants/employés ne peuvent que lire (pas de réponse).
+ */
+model ModuleAnnouncement {
+  id        String   @id @default(cuid())
+  moduleId  String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  author User   @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  reads  ModuleAnnouncementRead[]
+
+  @@index([moduleId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+/**
+ * Suivi de lecture d'un message par un apprenant.
+ * Permet badge "non lu" et affichage lu/non-lu.
+ */
+model ModuleAnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement ModuleAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId, readAt])
+  @@index([announcementId, readAt])
 }

@@ -22,6 +22,8 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { SupportFeedbackModule } from './support-feedback/support-feedback.module';
 import { StorageModule } from './storage/storage.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -41,6 +43,8 @@ import { StorageModule } from './storage/storage.module';
     CertificatesModule,
     ReviewsModule,
     SupportFeedbackModule,
+    AnnouncementsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import {
   Star,
@@ -96,6 +96,9 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
   const [expandAll, setExpandAll] = useState(false);
   const [starting, setStarting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusChapterOrderRaw = searchParams.get('chapterOrder');
+  const focusChapterOrder = focusChapterOrderRaw ? Number(focusChapterOrderRaw) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +131,30 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
         items: (ch.items ?? []).slice().sort((a, b) => a.order - b.order),
       }));
   }, [module_]);
+
+  // Si on arrive ici depuis un quiz "Revoir les ressources", on ouvre automatiquement le chapitre demandé
+  // et on scroll sur sa section dans la liste.
+  useEffect(() => {
+    if (!focusChapterOrder || !Number.isInteger(focusChapterOrder) || focusChapterOrder <= 0)
+      return;
+    if (chapters.length === 0) return;
+    const ch = chapters.find((c) => c.order === focusChapterOrder);
+    if (!ch) return;
+
+    setExpandAll(false);
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      next.add(ch.id);
+      return next;
+    });
+
+    // Laisser le DOM se peindre avant de scroller.
+    const t = globalThis.setTimeout(() => {
+      const el = document.getElementById(`chapter-${focusChapterOrder}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+    return () => globalThis.clearTimeout(t);
+  }, [chapters, focusChapterOrder]);
 
   const totalSessions = useMemo(
     () => chapters.reduce((acc, ch) => acc + (ch.items?.length ?? 0), 0),
@@ -296,7 +323,11 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                           ? `${Math.floor(chDurationMin / 60)} h ${chDurationMin % 60} min`
                           : `${chDurationMin} min`;
                       return (
-                        <div key={ch.id} className="border-b border-gray-100 last:border-b-0">
+                        <div
+                          key={ch.id}
+                          id={`chapter-${ch.order}`}
+                          className="border-b border-gray-100 last:border-b-0 scroll-mt-24"
+                        >
                           <button
                             type="button"
                             onClick={() => toggleChapter(ch)}

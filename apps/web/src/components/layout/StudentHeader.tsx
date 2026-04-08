@@ -10,11 +10,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Search } from 'lucide-react';
+import { MessageSquareText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { UserAvatar } from '@/components/account/UserAvatar';
 import { APP_NAME } from '@facam-academia/shared';
 import { api } from '@/lib/api-client';
+import { ANNOUNCEMENTS_READ_EVENT } from '@/lib/announcement-events';
 
 const LOGO_SRC = '/Facam%20Academia-02-02%202.png';
 
@@ -34,6 +35,7 @@ export function StudentHeader(
   const [searchQuery, setSearchQuery] = useState('');
   const [myLearningOpen, setMyLearningOpen] = useState(false);
   const [myCourses, setMyCourses] = useState<ApiCourse[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const loadMyCourses = useCallback(async () => {
@@ -49,6 +51,26 @@ export function StudentHeader(
   useEffect(() => {
     loadMyCourses();
   }, [loadMyCourses]);
+
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const res = await api.get<{ unreadCount: number }>('/announcements/unread-count');
+      const n = typeof res?.unreadCount === 'number' ? res.unreadCount : 0;
+      setUnreadCount(Number.isFinite(n) && n > 0 ? n : 0);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUnreadCount();
+  }, [loadUnreadCount]);
+
+  useEffect(() => {
+    const onRead = () => void loadUnreadCount();
+    globalThis.addEventListener(ANNOUNCEMENTS_READ_EVENT, onRead);
+    return () => globalThis.removeEventListener(ANNOUNCEMENTS_READ_EVENT, onRead);
+  }, [loadUnreadCount]);
 
   // Recharger à l'ouverture du dropdown pour refléter la progression la plus récente
   useEffect(() => {
@@ -176,6 +198,25 @@ export function StudentHeader(
                 </div>
               </div>
             </div>
+
+            <Link
+              href="/student/messages"
+              className="hidden sm:inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-gray-700 hover:text-facam-blue hover:bg-gray-50 transition-colors"
+              aria-label="Voir les messages"
+            >
+              <span className="relative inline-flex items-center" aria-hidden>
+                <MessageSquareText className="size-4" aria-hidden />
+                {unreadCount > 0 ? (
+                  <span
+                    className="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                    aria-label={`${unreadCount} message(s) non lu(s)`}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
+              <span>Messages</span>
+            </Link>
 
             {/* Profil — lien vers la page Compte */}
             <Link
