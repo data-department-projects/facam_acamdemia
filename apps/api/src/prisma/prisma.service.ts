@@ -14,7 +14,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    // Connexion reportée au premier usage pour ne pas bloquer le démarrage (Railway healthcheck).
+    // Connexion reportée au premier usage pour ne pas bloquer le démarrage (healthcheck plateforme).
     // Si DATABASE_URL est absente ou la DB injoignable, l'app écoute quand même et /health répond.
     try {
       await this.$connect();

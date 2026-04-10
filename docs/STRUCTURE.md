@@ -41,13 +41,12 @@ Code/
 ├── eslint.config.mjs           # ESLint racine (lint-staged)
 ├── turbo.json
 ├── vercel.json                 # Config build Vercel (monorepo)
-├── railway.toml                # Config Railway (API)
-├── Dockerfile                  # Image API pour Railway
-├── DEPLOYMENT.md
+├── render.yaml                 # Config Render (API)
+├── DEPLOYMENT.md               # (si présent) procédure déploiement
 └── package.json                # Workspaces + scripts racine
 ```
 
-- **apps/** : applications déployables (web sur Vercel, api sur Railway).
+- **apps/** : applications déployables (web sur Vercel, api sur Render).
 - **packages/** : librairies internes au monorepo (shared utilisé par web et api).
 - **docs/** : toute la doc technique et DevOps.
 - Fichiers à la racine : config partagée (ESLint, Prettier, Turbo, déploiement).
@@ -127,7 +126,7 @@ Les migrations sont dans **`apps/api/prisma/migrations/`** et sont versionnées 
 
 ### 3.2 En production
 
-- Les migrations sont appliquées **au démarrage de l’API** sur Railway via le script `apps/api/scripts/start-production.sh` (`prisma migrate deploy`). Aucune action manuelle à chaque déploiement.
+- Sur Render, préférer une commande **Pre-Deploy** : `prisma migrate deploy` (évite d’exécuter des migrations à chaque redémarrage).
 
 ### 3.3 Bonnes pratiques
 
@@ -173,6 +172,6 @@ Les variables d’environnement utilisées par Turbo sont listées dans `globalE
 | Document                               | Contenu                                                  |
 | -------------------------------------- | -------------------------------------------------------- |
 | **README.md**                          | Présentation, prérequis, commandes de base, lien Git.    |
-| **DEPLOYMENT.md**                      | Déploiement Vercel + Railway, variables, rollback.       |
+| **DEPLOYMENT.md**                      | Déploiement Vercel + Render, variables, rollback.        |
 | **docs/ENV.md**                        | Variables d’environnement par environnement et sécurité. |
 | **docs/DEVOPS-INFRASTRUCTURE-PLAN.md** | Stratégie branches, CI/CD, étapes réalisées.             |

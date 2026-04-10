@@ -16,7 +16,6 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
 import { ModuleCourseSidebar } from '@/components/student/ModuleCourseSidebar';
 import { ChapterVideoAndQuiz } from '@/components/student/ChapterVideoAndQuiz';
-import { ModuleCommentsSection } from '@/components/student/ModuleCommentsSection';
 import { api } from '@/lib/api-client';
 import { buildDownloadFilename, downloadFileFromUrl } from '@/lib/download-file';
 
@@ -599,17 +598,6 @@ export function ChapterPageClient({
                 </div>
               )}
             </div>
-
-            {isCertified ? (
-              <ModuleCommentsSection moduleId={moduleId} />
-            ) : (
-              <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-semibold text-slate-900">Commentaires et avis</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Disponible après avoir terminé le module et obtenu votre certificat.
-                </p>
-              </div>
-            )}
           </div>
 
           <aside className="lg:col-span-4">

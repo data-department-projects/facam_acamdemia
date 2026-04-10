@@ -1,0 +1,67 @@
+##
+## Render Blueprint — FACAM ACADEMIA API (NestJS)
+##
+## Rôle : décrire le service Render "as code" pour un déploiement reproductible via GitHub.
+## À connaître : Render exécutera le build puis la commande de démarrage; les variables sensibles sont définies dans Render (dashboard),
+## pas dans le dépôt.
+##
+
+services:
+  - type: web
+    name: facam-academia-api
+    runtime: node
+    plan: starter
+    autoDeploy: true
+
+    # Monorepo npm workspaces + turbo : construit l'API et ses dépendances (packages/shared).
+    buildCommand: npm ci && npx turbo run build --filter=api
+
+    # Migrations Prisma : à exécuter une fois par déploiement (avant de démarrer l'app).
+    preDeployCommand: npm run prisma:migrate:deploy -w api
+
+    # Démarrage : utilise process.env.PORT (Render injecte PORT automatiquement).
+    startCommand: npm run start:prod -w api
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      # PORT est fourni par Render; ne pas le définir ici.
+      # Variables ci-dessous: à définir dans Render (sync: false) avec tes vraies valeurs.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_DAYS
+        value: '30'
+      - key: AUTH_REFRESH_SAMESITE
+        value: none
+      # Supabase Storage (optionnel si tu utilises uploads depuis l'API)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # SMTP (optionnel)
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_SECURE
+        value: 'false'
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: FACAM ACADEMIA
+      - key: APP_LOGO_URL
+        sync: false

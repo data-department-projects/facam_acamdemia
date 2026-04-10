@@ -75,6 +75,8 @@ export function RichTextEditor({
   );
 
   const editor = useEditor({
+    // Next.js (SSR/RSC) : évite le rendu immédiat côté serveur et les mismatchs d'hydratation.
+    immediatelyRender: false,
     extensions,
     content: value || '',
     editorProps: {

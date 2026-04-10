@@ -297,7 +297,7 @@ export class AuthService {
   }
 
   /**
-   * Front Vercel + API Railway = origines différentes → `AUTH_REFRESH_SAMESITE=none` + HTTPS obligatoire.
+   * Front Vercel + API Render (ou tout hébergeur) = origines différentes → `AUTH_REFRESH_SAMESITE=none` + HTTPS obligatoire.
    * Front et API sur le même site (ex. app. et api. même domaine) → `lax` suffit souvent.
    */
   private refreshCookieSameSite(): 'lax' | 'none' | 'strict' {

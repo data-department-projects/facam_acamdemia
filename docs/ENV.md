@@ -1,6 +1,6 @@
 # Variables d'environnement — FACAM ACADEMIA
 
-Ce document décrit la gestion des variables d'environnement par environnement (local, production) et les bonnes pratiques de sécurité. Les valeurs réelles ne doivent **jamais** être commitées : utiliser les fichiers `.env.example` comme modèles et renseigner les secrets localement ou dans les dashboards (Vercel, Railway).
+Ce document décrit la gestion des variables d'environnement par environnement (local, production) et les bonnes pratiques de sécurité. Les valeurs réelles ne doivent **jamais** être commitées : utiliser les fichiers `.env.example` comme modèles et renseigner les secrets localement ou dans les dashboards (Vercel, Render).
 
 ---
 
@@ -10,7 +10,7 @@ Ce document décrit la gestion des variables d'environnement par environnement (
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ne jamais commiter de secrets**   | Les fichiers `.env`, `.env.local`, `.env.*.local` sont dans `.gitignore`. Seuls les `.env.example` (sans valeurs sensibles) sont versionnés. |
 | **Pas de secrets dans la CI**       | Les workflows GitHub Actions n'ont pas accès aux secrets de prod. Les builds utilisent `npm ci` et les commandes publiques uniquement.       |
-| **Production dans les plateformes** | En production, toutes les variables sont définies dans **Vercel** (frontend) et **Railway** (API), jamais dans le dépôt.                     |
+| **Production dans les plateformes** | En production, toutes les variables sont définies dans **Vercel** (frontend) et **Render** (API), jamais dans le dépôt.                      |
 | **Copier depuis les exemples**      | En local : `cp .env.example .env` (racine) et/ou `cp apps/web/.env.example apps/web/.env`, puis renseigner les valeurs.                      |
 
 ---
@@ -41,22 +41,22 @@ Référence complète : `.env.example` à la racine et `apps/web/.env.example`.
 
 Configurer dans **Vercel** → **Settings** → **Environment Variables** (environnement **Production**) :
 
-| Variable              | Obligatoire | Description                                            |
-| --------------------- | ----------- | ------------------------------------------------------ |
-| `NEXT_PUBLIC_API_URL` | Oui         | URL publique de l’API (ex. `https://xxx.railway.app`). |
+| Variable              | Obligatoire | Description                                             |
+| --------------------- | ----------- | ------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | Oui         | URL publique de l’API (ex. `https://xxx.onrender.com`). |
 
 Toute variable `NEXT_PUBLIC_*` est exposée au client : ne pas y mettre de secrets.
 
-### 3.3 Production — API (Railway)
+### 3.3 Production — API (Render)
 
-Configurer dans **Railway** → service API → **Variables** :
+Configurer dans **Render** → service API → **Environment** :
 
 | Variable                                           | Obligatoire | Description                                                                        |
 | -------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
 | `DATABASE_URL`                                     | Oui         | URL PostgreSQL (pooler Supabase, port 6543, `?pgbouncer=true&connection_limit=1`). |
 | `DIRECT_URL`                                       | Oui         | URL PostgreSQL directe (port 5432) pour les migrations Prisma.                     |
 | `JWT_SECRET`                                       | Oui         | Secret JWT (min. 32 caractères, aléatoire).                                        |
-| `PORT`                                             | Non         | Généralement défini par Railway.                                                   |
+| `PORT`                                             | Non         | Défini automatiquement par Render.                                                 |
 | `CORS_ORIGIN`                                      | Recommandé  | Origine du frontend (ex. `https://ton-app.vercel.app`).                            |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Si emails   | Configuration SMTP (ex. Gmail avec mot de passe d’application).                    |
 
@@ -75,4 +75,4 @@ Référence : `DEPLOYMENT.md` § 2.3 et `.env.example` à la racine.
 
 - **`.gitignore`** contient bien `.env`, `.env.local`, `.env.*.local` et conserve `!.env.example`.
 - Aucun fichier `.env` ou `.env.local` n’est suivi par Git (`git status` ne doit pas les afficher).
-- En prod, les variables sont définies uniquement dans Vercel et Railway, avec les bonnes valeurs pour l’environnement Production.
+- En prod, les variables sont définies uniquement dans Vercel et Render, avec les bonnes valeurs pour l’environnement Production.
