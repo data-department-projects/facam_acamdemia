@@ -674,94 +674,28 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
-      {/* Footer — propre, organisé et esthétique */}
-      <footer id="footer" className="relative bg-facam-dark text-white">
-        {/* Séparateur visuel en haut du footer */}
-        <div
-          className="h-px w-full bg-gradient-to-r from-transparent via-facam-yellow/40 to-transparent"
-          aria-hidden
-        />
-        <div className="container-custom py-16">
-          <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-12 lg:gap-8">
-            {/* Marque et description */}
-            <div className="lg:col-span-5">
-              <div className="inline-flex items-center gap-3">
-                <Image
-                  src="/Facam%20Academia-03%202.png"
-                  alt={APP_NAME}
-                  width={150}
-                  height={40}
-                  className="h-9 w-auto object-contain"
-                  priority
-                />
-              </div>
-              <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">
-                La plateforme premium de formation industrielle en ligne. Formez-vous, validez vos
-                compétences et certifiez-vous.
+      {/* Footer accueil — style simple type daisyUI, adapte charte FACAM STAIRWAY */}
+      <footer id="footer" className="bg-facam-blue text-facam-white">
+        <div className="container-custom py-10">
+          <div className="flex flex-col items-center text-center">
+            <aside className="flex flex-col items-center">
+              <Image
+                src="/Facam%20Academia-03%202.png"
+                alt={APP_NAME}
+                width={170}
+                height={48}
+                className="h-10 w-auto object-contain"
+                priority
+              />
+              <p className="mt-4 text-base font-bold text-facam-white">
+                FACAM ACADEMIA
+                <br />
+                Le canal par lequel explose votre talent !
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href="/login">
-                  <Button variant="accent" size="sm">
-                    Se connecter
-                  </Button>
-                </Link>
-                <Link href="#programmes">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/25 text-white hover:border-white/50"
-                  >
-                    Programmes
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            {/* Liens principaux */}
-            <div className="lg:col-span-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
-                Navigation
-              </h3>
-              <ul className="mt-4 space-y-3 text-sm text-white/75">
-                <li>
-                  <Link href="#programmes" className="transition-colors hover:text-white">
-                    Programmes
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login" className="transition-colors hover:text-white">
-                    Connexion
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            {/* Entreprise */}
-            <div className="lg:col-span-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-facam-yellow/90">
-                Entreprise
-              </h3>
-              <ul className="mt-4 space-y-3 text-sm text-white/75">
-                <li>
-                  <Link href="/#entreprises" className="transition-colors hover:text-white">
-                    Former vos équipes
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/#entreprises" className="transition-colors hover:text-white">
-                    Partenariats
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Barre inférieure */}
-          <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 sm:flex-row">
-            <p className="text-sm text-white/60">
-              © {new Date().getFullYear()} {APP_NAME}. Tous droits réservés.
-            </p>
-            <div className="flex items-center gap-4 text-sm text-white/60">
-              <span className="rounded-full bg-white/10 px-3 py-1">FR</span>
-            </div>
+              <p className="mt-2 text-sm text-facam-white/80">
+                Copyright © {new Date().getFullYear()} - Tous droits reserves
+              </p>
+            </aside>
           </div>
         </div>
       </footer>

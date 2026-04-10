@@ -41,7 +41,7 @@ cd apps/api && npx prisma validate
 ## 5. Variables d'environnement production
 
 - **API** : `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, etc. (voir `CONFIGURATION.md`)
-- **Web** : `NEXT_PUBLIC_API_URL` pointant vers l’API (ex. Railway)
+- **Web** : `NEXT_PUBLIC_API_URL` pointant vers l’API (ex. Render)
 
 ## Résumé des corrections effectuées (session actuelle)
 

@@ -24,10 +24,14 @@ import { SupportFeedbackModule } from './support-feedback/support-feedback.modul
 import { StorageModule } from './storage/storage.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { validateEnv } from './config/env';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+    }),
     StorageModule,
     PrismaModule,
     CoreModule,

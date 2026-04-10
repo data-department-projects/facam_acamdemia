@@ -20,13 +20,13 @@ export class ReviewsService {
     if (!module_) {
       throw new NotFoundException('Module introuvable');
     }
-    const certificate = await this.prisma.certificate.findFirst({
+    const enrollment = await this.prisma.enrollment.findFirst({
       where: { moduleId, userId },
       select: { id: true },
     });
-    if (!certificate) {
+    if (!enrollment) {
       throw new ForbiddenException(
-        'Vous pourrez laisser un avis uniquement après avoir terminé le module et obtenu votre certificat.'
+        'Vous pourrez laisser un avis uniquement apres avoir termine ce module.'
       );
     }
     const existe = await this.prisma.review.findFirst({

@@ -1,8 +1,0 @@
-# Configuration Railway pour l’API (service déployé via le Dockerfile à la racine).
-# Voir https://docs.railway.app/reference/config-as-code
-
-[deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 30
-healthcheckInterval = 15
-healthcheckGracePeriod = 30

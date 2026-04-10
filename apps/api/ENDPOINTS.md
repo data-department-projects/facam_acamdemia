@@ -122,6 +122,6 @@ Les routes protégées nécessitent l’en-tête : `Authorization: Bearer <acces
 - `JWT_SECRET` : clé pour signer les tokens (défaut : `cle-secret-facam-dev`).
 - `JWT_ACCESS_EXPIRES_IN` : durée de vie du JWT d’accès (défaut : `15m`). Le cookie refresh prolonge la session tant que l’appelant reste actif.
 - `REFRESH_TOKEN_DAYS` : durée de vie du cookie refresh (défaut : `30`).
-- `AUTH_REFRESH_SAMESITE` : `lax` (défaut) ou `none`. Pour **Vercel + Railway** (domaines différents), mettre **`none`** (HTTPS obligatoire sur l’API).
+- `AUTH_REFRESH_SAMESITE` : `lax` (défaut) ou `none`. Pour **Vercel + Render** (domaines différents), mettre **`none`** (HTTPS obligatoire sur l’API).
 - `PORT` : port du serveur (défaut : 3001).
 - `CORS_ORIGIN` : origine(s) CORS (défaut : `true` = toute origine).

@@ -7,7 +7,7 @@ Plateforme e-learning dédié aux jeunes diplômés pour les formations industri
 - **Monorepo** : npm workspaces + Turborep
 - **Frontend** : Next.js 15 (App Router), React 19, Tailwind CSS
 - **Backend** : Nest.js, Prisma (Supabase)
-- **CI/CD** : GitHub Actions ; déploiement Vercel (web) + Railway (API)
+- **CI/CD** : GitHub Actions ; déploiement Vercel (web) + Render (API)
 
 ## Prérequis
 
@@ -53,7 +53,7 @@ Vue complète : **`docs/STRUCTURE.md`**.
 
 - **dev** : développement au quotidien
 - **main** : intégration / staging
-- **production** : déploiement automatique (Vercel + Railway)
+- **production** : déploiement automatique (Vercel + Render)
 
 Travail sur `dev` → PR vers `main` → PR vers `production` pour déployer. Détail : **`docs/DEVOPS-INFRASTRUCTURE-PLAN.md`**.
 
@@ -67,7 +67,7 @@ Travail sur `dev` → PR vers `main` → PR vers `production` pour déployer. D�
 ## Déploiement
 
 - **Frontend** : Vercel (déploiement automatique sur chaque push vers la branche **`production`**).
-- **Backend** : Railway (idem, branche **`production`**).
+- **Backend** : Render (idem, branche **`production`**).
 
 Variables d'environnement, rollback et procédure complète : **`DEPLOYMENT.md`** et **`docs/ENV.md`**.
 
@@ -77,7 +77,7 @@ Variables d'environnement, rollback et procédure complète : **`DEPLOYMENT.md`*
 | -------------------------------------- | ------------------------------------------------ |
 | **docs/STRUCTURE.md**                  | Structure, scripts npm, ESLint, Prettier, Prisma |
 | **docs/ENV.md**                        | Variables d'environnement et sécurité            |
-| **DEPLOYMENT.md**                      | Déploiement Vercel + Railway, rollback           |
+| **DEPLOYMENT.md**                      | Déploiement Vercel + Render, rollback            |
 | **docs/DEVOPS-INFRASTRUCTURE-PLAN.md** | Stratégie branches, CI/CD                        |
 
 ## Licence
