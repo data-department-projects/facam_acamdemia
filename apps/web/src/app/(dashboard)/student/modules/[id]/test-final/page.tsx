@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api-client';
@@ -46,6 +47,13 @@ interface ApiModule {
 
 interface ApiCertificate {
   finalGrade: number;
+}
+
+function normalizeScorePercent(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 100) return 100;
+  return Math.round(value);
 }
 
 function QuestionBlock({
@@ -104,6 +112,13 @@ export default function StudentTestFinalPage() {
     scorePercent: number | null;
     passed: boolean | null;
   } | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,7 +153,7 @@ export default function StudentTestFinalPage() {
               0,
               Math.min(100, Math.round((cert.finalGrade / 20) * 100))
             );
-            setResult({ scorePercent, passed: true });
+            setResult({ scorePercent: normalizeScorePercent(scorePercent), passed: true });
             setSubmitted(true);
             setLoading(false);
             return;
@@ -228,7 +243,10 @@ export default function StudentTestFinalPage() {
           }
         )
         .then((res) => {
-          setResult(res);
+          setResult({
+            scorePercent: normalizeScorePercent(res?.scorePercent),
+            passed: Boolean(res?.passed),
+          });
           setSubmitted(true);
         })
         .catch(() => setSubmitting(false))
@@ -238,6 +256,44 @@ export default function StudentTestFinalPage() {
 
   const handlePrev = () => {
     if (currentIndex > 0) setCurrentIndex((i) => i - 1);
+  };
+
+  useEffect(() => {
+    if (!submitted || !result?.passed) return;
+    if (!reviewSubmitted) {
+      setReviewOpen(true);
+    }
+  }, [submitted, result, reviewSubmitted]);
+
+  const closeReviewPrompt = () => {
+    setReviewOpen(false);
+  };
+
+  const submitReview = async () => {
+    if (reviewRating <= 0 || reviewSubmitting) return;
+    setReviewSubmitting(true);
+    setReviewError(null);
+    try {
+      await api.post(`/reviews/module/${encodeURIComponent(moduleId)}`, {
+        rating: reviewRating,
+        comment: reviewComment.trim() ? reviewComment.trim() : undefined,
+      });
+      setReviewSubmitted(true);
+      setReviewComment('');
+      setReviewRating(0);
+      setReviewHoverRating(0);
+      closeReviewPrompt();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Impossible d'enregistrer votre avis.";
+      if (message.toLowerCase().includes('deja laisse')) {
+        setReviewSubmitted(true);
+        closeReviewPrompt();
+        return;
+      }
+      setReviewError(message);
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   if (loading && !quiz) {
@@ -290,10 +346,75 @@ export default function StudentTestFinalPage() {
   }
 
   if (submitted && result !== null) {
-    const score = result.scorePercent ?? 0;
+    const score = normalizeScorePercent(result.scorePercent);
     const passed = result.passed ?? false;
     return (
       <div className="mx-auto max-w-lg space-y-6">
+        {passed ? (
+          <Modal
+            open={reviewOpen}
+            onClose={closeReviewPrompt}
+            title="Donnez votre avis sur le module"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-slate-700">
+                Votre retour nous aide a ameliorer la qualite des formations.
+              </p>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-900">Votre note</p>
+                <div
+                  className="flex items-center gap-1"
+                  role="group"
+                  aria-label="Notation en etoiles"
+                >
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setReviewRating(value)}
+                      onMouseEnter={() => setReviewHoverRating(value)}
+                      onMouseLeave={() => setReviewHoverRating(0)}
+                      className="rounded p-1 focus:outline-none focus:ring-2 focus:ring-facam-blue"
+                    >
+                      <Star
+                        className={`size-7 ${
+                          value <= (reviewHoverRating || reviewRating)
+                            ? 'fill-facam-yellow text-facam-yellow'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="review-comment" className="text-sm font-medium text-slate-900">
+                  Commentaire (optionnel)
+                </label>
+                <textarea
+                  id="review-comment"
+                  rows={3}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-facam-blue"
+                  placeholder="Partagez votre experience..."
+                />
+              </div>
+              {reviewError ? <p className="text-sm text-red-600">{reviewError}</p> : null}
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" onClick={closeReviewPrompt}>
+                  Plus tard
+                </Button>
+                <Button
+                  onClick={() => void submitReview()}
+                  disabled={reviewRating <= 0 || reviewSubmitting}
+                >
+                  {reviewSubmitting ? 'Envoi...' : 'Envoyer mon avis'}
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Résultat du test final</CardTitle>
@@ -305,6 +426,27 @@ export default function StudentTestFinalPage() {
                 ? 'Module validé. Votre certificat est disponible.'
                 : `Seuil requis : ${MIN_SCORE_FINAL} %. Réessayez le test.`}
             </p>
+            {passed && reviewSubmitted ? (
+              <div className="mt-5 rounded-2xl border border-facam-blue/20 bg-gradient-to-br from-facam-blue/10 to-facam-yellow/10 p-4">
+                <p className="text-sm font-semibold text-facam-dark">
+                  Merci pour votre avis. Votre certificat est prêt.
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Vous pouvez le télécharger maintenant et le partager dans votre dossier
+                  professionnel.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Link href={`/student/modules/${moduleId}/certificat`}>
+                    <Button variant="accent" size="lg">
+                      Télécharger mon certificat
+                    </Button>
+                  </Link>
+                  <Link href={`/student/modules/${moduleId}`}>
+                    <Button variant="outline">Retour au module</Button>
+                  </Link>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-4 flex gap-4">
               <Link href={`/student/modules/${moduleId}`}>
                 <Button variant="outline">Retour au module</Button>
