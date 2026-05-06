@@ -33,13 +33,15 @@ export function CourseCard({ course, showProgress = false, compact = false }: Co
         className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group"
       >
         <div className="relative w-24 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-200">
-          <Image
-            src={course.imageUrl}
-            alt={course.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform"
-            sizes="96px"
-          />
+          {course.imageUrl ? (
+            <Image
+              src={course.imageUrl}
+              alt={course.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform"
+              sizes="96px"
+            />
+          ) : null}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-facam-dark line-clamp-2 group-hover:text-facam-blue transition-colors">
@@ -61,13 +63,15 @@ export function CourseCard({ course, showProgress = false, compact = false }: Co
   return (
     <Link href={`/student/modules/${course.id}`} className="group block">
       <div className="relative h-40 w-full overflow-hidden rounded-md border border-gray-200 mb-3 bg-gray-100">
-        <Image
-          src={course.imageUrl}
-          alt={course.title}
-          fill
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-        />
+        {course.imageUrl ? (
+          <Image
+            src={course.imageUrl}
+            alt={course.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          />
+        ) : null}
       </div>
       <h3 className="font-bold text-facam-dark line-clamp-2 mb-1 group-hover:text-facam-blue transition-colors">
         {course.title}

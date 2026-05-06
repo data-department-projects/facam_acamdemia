@@ -65,7 +65,7 @@ export class ChapitresService {
           chapterId: chapitre.id,
           type: 'video',
           order: itemOrder++,
-          title: dto.videoTitle?.trim() || dto.title,
+          title: dto.title,
           videoUrl: dto.videoUrl.trim(),
         },
       });
@@ -129,7 +129,6 @@ export class ChapitresService {
         type: dto.type,
         order: dto.order,
         title: dto.title,
-        durationMinutes: dto.durationMinutes,
         videoUrl: dto.videoUrl,
         documentLabel: dto.documentLabel,
         documentUrl: dto.documentUrl,
@@ -369,22 +368,34 @@ export class ChapitresService {
     await this.prisma.chapter.delete({ where: { id: chapitreId } });
   }
 
+  /**
+   * Vérifie les droits d'accès à un module. Compatible multi-rôles :
+   * charge les rôles complets de l'utilisateur depuis la DB pour une vérification exhaustive.
+   */
   private async verifierDroitsModule(
     moduleId: string,
     userId: string,
-    role: string,
+    _role: string,
     lectureSeulement = false
   ): Promise<void> {
     const module_ = await this.prisma.module.findUnique({ where: { id: moduleId } });
     if (!module_) {
       throw new NotFoundException('Module introuvable');
     }
-    const peutModifier =
-      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
-    if (peutModifier) {
+    if (module_.managerId === userId) {
       return;
     }
-    if (lectureSeulement && (role === 'student' || role === 'employee')) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { roles: true, role: true },
+    });
+    const userRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+    const estAdmin = userRoles.includes('admin') || userRoles.includes('platform_manager');
+    if (estAdmin) {
+      return;
+    }
+    const estApprenant = userRoles.includes('student') || userRoles.includes('employee');
+    if (lectureSeulement && estApprenant) {
       const inscription = await this.prisma.enrollment.findFirst({
         where: { userId, moduleId },
       });

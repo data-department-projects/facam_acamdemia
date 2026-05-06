@@ -8,6 +8,9 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# Prisma generated client (régénéré par prisma generate)
+apps/api/src/generated/
+
 # Environment
 .env
 .env.local
@@ -41,3 +44,6 @@ supabase/.temp/
 # Misc
 *.local
 .cache/
+
+.claude
+.sixth

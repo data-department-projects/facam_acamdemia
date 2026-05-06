@@ -17,7 +17,6 @@ import { CoursesModule } from './courses/courses.module';
 import { ChapitresModule } from './chapitres/chapitres.module';
 import { EnrollmentsModule } from './enrollments/enrollments.module';
 import { QuizModule } from './quiz/quiz.module';
-import { GradesModule } from './grades/grades.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { SupportFeedbackModule } from './support-feedback/support-feedback.module';
@@ -43,7 +42,6 @@ import { validateEnv } from './config/env';
     ChapitresModule,
     EnrollmentsModule,
     QuizModule,
-    GradesModule,
     CertificatesModule,
     ReviewsModule,
     SupportFeedbackModule,

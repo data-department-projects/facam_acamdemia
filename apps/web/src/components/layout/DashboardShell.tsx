@@ -1,5 +1,6 @@
 /**
  * Enveloppe client : Gère l'affichage conditionnel (StudentLayout vs Sidebar classique).
+ * Utilise le rôle actif (choisi par l'utilisateur) pour déterminer l'interface à afficher.
  */
 
 'use client';
@@ -42,7 +43,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     setUser(u);
   }, [mounted, pathname, router]);
 
-  /** Synchronise avatar / nom avec la base (utile si la session locale date d’avant cette feature). */
   useEffect(() => {
     if (!mounted || !user?.id) return;
     const token = getAccessToken();
@@ -51,18 +51,27 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     void api
       .get<{
         fullName: string;
+        roles: string[];
         firstLoginAt: string | null;
         avatarUrl?: string | null;
+        employeeId?: string | null;
+        phoneNumber1?: string | null;
+        phoneNumber2?: string | null;
       }>('/auth/me')
       .then((me) => {
         if (cancelled) return;
         setUser((prev) => {
           if (!prev?.id) return prev;
+          const meRoles = (me.roles ?? []) as UserRole[];
           const next: StoredUser = {
             ...prev,
             fullName: me.fullName,
+            roles: meRoles.length > 0 ? meRoles : prev.roles,
             firstLoginAt: me.firstLoginAt,
             avatarUrl: me.avatarUrl ?? undefined,
+            employeeId: me.employeeId,
+            phoneNumber1: me.phoneNumber1,
+            phoneNumber2: me.phoneNumber2,
           };
           setAuthSession(next, token);
           return next;
@@ -93,15 +102,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Layout spécifique Étudiant / Employé (Udemy Clone)
-  if (user.role === 'student' || user.role === 'employee') {
+  const activeRole = user.role;
+
+  if (activeRole === 'student' || activeRole === 'employee') {
     return <StudentLayout user={user}>{children}</StudentLayout>;
   }
 
-  // Layout Classique (Admin / Manager)
   return (
     <div className="flex min-h-screen bg-facam-blue-tint">
-      <Sidebar role={user.role} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar role={activeRole} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col min-w-0">
         <Header
           showSidebarToggle
@@ -109,10 +118,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           user={{
             fullName: user.fullName,
             email: user.email,
-            role: user.role,
+            role: activeRole,
             avatarUrl: user.avatarUrl,
           }}
-          compteHref={getCompteHref(user.role)}
+          compteHref={getCompteHref(activeRole)}
         />
         <main className="flex-1 bg-gray-50 p-4 md:p-6" role="main">
           {children}

@@ -1,11 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 model User {
@@ -14,19 +13,24 @@ model User {
   passwordHash   String?
   fullName       String
   role           String
+  roles          String[]         @default([])
+  employeeId     String?          @unique
+  phoneNumber1   String?
+  phoneNumber2   String?
   avatarUrl      String?
   firstLoginAt   DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   enrollments    Enrollment[]
-  gradedAttempts FinalQuizGrade[] @relation("Grader")
   managedModule  Module?          @relation("ModuleManager")
   quizAttempts   QuizAttempt[]
   reviews        Review[]
   supportFeedbacks SupportFeedback[]
   refreshTokens  RefreshToken[]
+  sessionTokenGrants SessionTokenGrant[]
   moduleAnnouncements ModuleAnnouncement[] @relation("AnnouncementAuthor")
   announcementReads ModuleAnnouncementRead[]
+  activityPings  UserActivityPing[]
 }
 
 model PasswordResetOtp {
@@ -48,7 +52,6 @@ model Module {
   imageUrl            String?
   teaserVideoUrl      String?
   level               String?
-  sharePointFolderUrl String?
   authorName          String
   authorBio           String?
   authorAvatarUrl     String?
@@ -157,7 +160,6 @@ model Enrollment {
   module              Module               @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   progress            EnrollmentProgress[]
-  finalGrade          FinalQuizGrade[]
   attempts            QuizAttempt[]
 }
 
@@ -181,24 +183,9 @@ model QuizAttempt {
   passed       Boolean?
   answers      Json?
   submittedAt  DateTime        @default(now())
-  finalGrade   FinalQuizGrade?
   enrollment   Enrollment?     @relation(fields: [enrollmentId], references: [id])
   quiz         Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model FinalQuizGrade {
-  id           String      @id @default(cuid())
-  attemptId    String      @unique
-  enrollmentId String
-  gradeOver20  Int
-  mention      String?
-  gradedById   String
-  gradedAt     DateTime    @default(now())
-  comment      String?
-  attempt      QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  enrollment   Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  grader       User        @relation("Grader", fields: [gradedById], references: [id], onDelete: Cascade)
 }
 
 model Certificate {
@@ -235,6 +222,22 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/**
+ * Historique d'attribution des tokens d'accès (login + refresh).
+ * Utilisé pour estimer le temps de présence: 1 token = 15 minutes.
+ */
+model SessionTokenGrant {
+  id              String   @id
+  userId          String
+  grantType       String
+  minutesPerToken Int      @default(15)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model SupportFeedback {
@@ -290,4 +293,19 @@ model ModuleAnnouncementRead {
   @@unique([announcementId, userId])
   @@index([userId, readAt])
   @@index([announcementId, readAt])
+}
+
+/// Ping d'activité envoyé par le frontend toutes les 2 min lors de la consultation d'un module.
+/// Remplace l'estimation par tokens pour mesurer le temps réel de présence.
+model UserActivityPing {
+  id           String   @id @default(cuid())
+  userId       String
+  moduleId     String?
+  enrollmentId String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

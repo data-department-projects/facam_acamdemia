@@ -15,6 +15,7 @@ import type { RoleType } from '../core/constants';
 import { AnnouncementsService } from './announcements.service';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
 import { MarkAnnouncementsReadDto } from './dto/mark-announcements-read.dto';
+import { InternalServerErrorException } from '@nestjs/common';
 
 @Controller('announcements')
 @UseGuards(JwtAuthGuard)
@@ -23,7 +24,7 @@ export class AnnouncementsController {
 
   @Get('test')
   getTest(): { status: string } {
-    return { status: 'announcements ok' };
+    return { status: 'Annonce sont bons' };
   }
 
   /** Envoi d'un message à tous les apprenants du module géré par ce compte. */
@@ -34,7 +35,7 @@ export class AnnouncementsController {
     return this.announcementsService.sendFromManager(user.sub, user.role as RoleType, dto.content);
   }
 
-  /** Historique des messages (module manager) */
+  /** Historique des messages (module manager)  Disponible que pour les managers de modules internes et externes*/
   @Get('sent')
   @UseGuards(RolesGuard)
   @Roles(ROLES.MODULE_MANAGER_INTERNAL, ROLES.MODULE_MANAGER_EXTERNAL)
@@ -47,7 +48,11 @@ export class AnnouncementsController {
   @UseGuards(RolesGuard)
   @Roles(ROLES.STUDENT, ROLES.EMPLOYEE)
   listerPourMoi(@CurrentUser() user: UtilisateurPayload) {
-    return this.announcementsService.listForLearner(user.sub, user.role as RoleType);
+    try {
+      return this.announcementsService.listForLearner(user.sub, user.role as RoleType);
+    } catch {
+      throw new InternalServerErrorException('Erreur de la récupération de vos messages');
+    }
   }
 
   @Get('unread-count')

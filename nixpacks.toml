@@ -1,0 +1,20 @@
+# Nixpacks — builder Railway pour le monorepo FACAM ACADEMIA (API NestJS)
+# Railway lit ce fichier automatiquement depuis la racine du dépôt.
+
+[variables]
+# Désactive Husky pendant le build CI (le script prepare le détecte)
+HUSKY = "0"
+CI = "1"
+
+[phases.setup]
+# Node 20 LTS — aligné avec engines.node >= 20 dans package.json
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npx turbo run build --filter=api"]
+
+[start]
+cmd = "npm run start:railway -w api"

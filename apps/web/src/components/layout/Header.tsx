@@ -47,9 +47,9 @@ function getHeaderTheme(variant: HeaderProps['variant']) {
         accountIcon: 'bg-facam-blue-tint text-facam-blue',
         logoutButton: 'hover:bg-facam-blue-tint',
         loginPill:
-          'bg-facam-yellow text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0',
+          'bg-facam-yellow text-facam-dark hover:brightness-105 focus-visible:ring-0 focus-visible:ring-offset-0',
         ctaPill:
-          'rounded-full bg-facam-yellow px-5 text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0',
+          'rounded-full bg-facam-yellow px-5 text-facam-dark hover:brightness-105 focus-visible:ring-0 focus-visible:ring-offset-0',
       } as const;
     }
     case 'transparent': {
@@ -70,9 +70,9 @@ function getHeaderTheme(variant: HeaderProps['variant']) {
         accountIcon: 'bg-white/10 text-white',
         logoutButton: 'hover:bg-white/10',
         loginPill:
-          'bg-facam-yellow text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0',
+          'bg-facam-yellow text-facam-dark hover:brightness-105 focus-visible:ring-0 focus-visible:ring-offset-0',
         ctaPill:
-          'rounded-full bg-facam-yellow px-5 text-facam-dark hover:brightness-105 shadow-facam-yellow focus-visible:ring-0 focus-visible:ring-offset-0',
+          'rounded-full bg-facam-yellow px-5 text-facam-dark hover:brightness-105 focus-visible:ring-0 focus-visible:ring-offset-0',
       } as const;
     }
     case 'default':

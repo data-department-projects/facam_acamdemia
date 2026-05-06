@@ -214,7 +214,7 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
         : module_.level === 'avance'
           ? 'Avancé'
           : null;
-  const imgSrc = module_.imageUrl || '/placeholder-course.jpg';
+  const imgSrc = module_.imageUrl?.trim() ? module_.imageUrl : null;
 
   return (
     <div className="bg-white min-h-screen">
@@ -257,16 +257,18 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
                 </span>
               </p>
             </div>
-            <div className="relative w-full md:w-80 h-44 md:h-52 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
-              <Image
-                src={imgSrc}
-                alt={module_.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 320px"
-                priority
-              />
-            </div>
+            {imgSrc ? (
+              <div className="relative w-full md:w-80 h-44 md:h-52 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800">
+                <Image
+                  src={imgSrc}
+                  alt={module_.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 320px"
+                  priority
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -404,15 +406,17 @@ export function StudentModuleDetailClient({ moduleId }: { moduleId: string }) {
 
           <div className="lg:col-span-1">
             <div className="sticky top-24 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-              <div className="relative w-full aspect-video rounded-t-lg overflow-hidden bg-gray-100">
-                <Image
-                  src={imgSrc}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 320px"
-                />
-              </div>
+              {imgSrc ? (
+                <div className="relative w-full aspect-video rounded-t-lg overflow-hidden bg-gray-100">
+                  <Image
+                    src={imgSrc}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 320px"
+                  />
+                </div>
+              ) : null}
               <div className="p-5 space-y-4">
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-full bg-facam-blue text-white flex items-center justify-center font-bold flex-shrink-0">

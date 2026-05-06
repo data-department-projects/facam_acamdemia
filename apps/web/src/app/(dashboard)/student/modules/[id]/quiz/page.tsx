@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api-client';
+import { useActivityPing } from '@/hooks/useActivityPing';
 
 interface ApiQuestion {
   id: string;
@@ -97,6 +98,8 @@ function StudentModuleQuizContent() {
 
   const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+
+  useActivityPing(moduleId, enrollmentId);
   const [loading, setLoading] = useState(!!quizId);
   const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -228,7 +231,7 @@ function StudentModuleQuizContent() {
 
   if (!quizId) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Aucun quiz sélectionné.</p>
         <Link href={`/student/modules/${moduleId}`}>
           <Button variant="outline">Retour au module</Button>
@@ -239,7 +242,7 @@ function StudentModuleQuizContent() {
 
   if (loading || (!quiz && !submitted)) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Chargement du quiz…</p>
       </div>
     );
@@ -250,7 +253,7 @@ function StudentModuleQuizContent() {
     const passed = result.passed ?? false;
     const minScore = quiz?.minScoreToPass ?? 70;
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle>Résultat du quiz</CardTitle>
@@ -287,7 +290,7 @@ function StudentModuleQuizContent() {
 
   if (quiz?.alreadyPassed) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle>Quiz déjà validé</CardTitle>
@@ -315,7 +318,7 @@ function StudentModuleQuizContent() {
 
   if (!quiz || quiz.questions.length === 0) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Quiz introuvable ou sans questions.</p>
         <Link href={`/student/modules/${moduleId}`}>
           <Button variant="outline">Retour au module</Button>
@@ -336,7 +339,7 @@ function StudentModuleQuizContent() {
   const isLastAttempt = attemptsRemaining === 1;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h1 className="text-xl font-bold text-slate-900">{quiz.title}</h1>
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">

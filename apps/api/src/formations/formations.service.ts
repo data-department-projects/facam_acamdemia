@@ -9,11 +9,16 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppStorageService } from '../storage/app-storage.service';
 import type { CreateFormationDto } from './dto/create-formation.dto';
 import type { UpdateFormationDto } from './dto/update-formation.dto';
+
+function isAdminLike(role: string, roles?: string[]): boolean {
+  const all = roles?.length ? roles : [role];
+  return all.includes('admin') || all.includes('platform_manager');
+}
 
 /** Normalise moduleType en minuscules pour cohérence avec le schéma (interne | externe). */
 function normalizeModuleType(value: string | null | undefined): string | null {
@@ -41,7 +46,6 @@ export class FormationsService {
         moduleType: dto.moduleType ?? null,
         teaserVideoUrl: dto.teaserVideoUrl,
         level: dto.level,
-        sharePointFolderUrl: dto.sharePointFolderUrl,
         authorName: dto.authorName,
         authorBio: dto.authorBio,
         authorAvatarUrl: dto.authorAvatarUrl,
@@ -105,8 +109,6 @@ export class FormationsService {
       }),
       this.prisma.module.count({ where }),
     ]);
-    const moduleIds = data.map((m) => m.id);
-    const firstVideoByModule = await this.getFirstVideoUrlByModuleIds(moduleIds);
     const dataAvecProgression = data.map((m) => {
       const enrollment =
         isLearner &&
@@ -119,7 +121,6 @@ export class FormationsService {
         description: m.description,
         prerequisites: m.prerequisites ?? null,
         imageUrl: m.imageUrl,
-        firstVideoUrl: firstVideoByModule[m.id] ?? null,
         durationHours: 0,
         chaptersCount: m._count.chapters,
         quizCount: m._count.quizzes,
@@ -130,7 +131,7 @@ export class FormationsService {
         authorName: m.authorName,
         ...(enrollment
           ? {
-              progress: enrollment.progressPercent,
+              progress: enrollment.completedAt ? 100 : enrollment.progressPercent,
               completedAt: enrollment.completedAt?.toISOString() ?? null,
             }
           : {}),
@@ -184,7 +185,6 @@ export class FormationsService {
       where: { moduleId: id, isFinal: true },
       select: { id: true },
     });
-    const firstVideoByModule = await this.getFirstVideoUrlByModuleIds([id]);
     return {
       id: module_.id,
       title: module_.title,
@@ -195,10 +195,8 @@ export class FormationsService {
         (module_ as { learningObjectives?: string | null }).learningObjectives ?? null,
       moduleType: normalizeModuleType(module_.moduleType),
       imageUrl: module_.imageUrl,
-      firstVideoUrl: firstVideoByModule[id] ?? null,
       teaserVideoUrl: module_.teaserVideoUrl,
       level: module_.level,
-      sharePointFolderUrl: module_.sharePointFolderUrl,
       authorName: module_.authorName,
       authorBio: module_.authorBio,
       authorAvatarUrl: module_.authorAvatarUrl,
@@ -210,7 +208,7 @@ export class FormationsService {
       chapters: module_.chapters,
       ...(enrollment
         ? {
-            progress: enrollment.progressPercent,
+            progress: enrollment.completedAt ? 100 : enrollment.progressPercent,
             lastViewedChapterId: enrollment.lastViewedChapterId,
             lastViewedItemId: enrollment.lastViewedItemId,
             completedAt: enrollment.completedAt?.toISOString() ?? null,
@@ -226,7 +224,8 @@ export class FormationsService {
     moduleId: string,
     file: { buffer: Buffer; mimetype: string },
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ imageUrl: string }> {
     this.appStorage.assertReady();
     if (!file?.buffer?.length) {
@@ -240,8 +239,7 @@ export class FormationsService {
     if (!module_) {
       throw new NotFoundException('Module introuvable');
     }
-    const peutModifier =
-      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    const peutModifier = isAdminLike(role, roles) || module_.managerId === userId;
     if (!peutModifier) {
       throw new ForbiddenException('Vous ne pouvez pas modifier ce module');
     }
@@ -275,14 +273,14 @@ export class FormationsService {
     id: string,
     dto: UpdateFormationDto,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ id: string; title: string }> {
     const module_ = await this.prisma.module.findUnique({ where: { id } });
     if (!module_) {
       throw new NotFoundException('Module introuvable');
     }
-    const peutModifier =
-      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    const peutModifier = isAdminLike(role, roles) || module_.managerId === userId;
     if (!peutModifier) {
       throw new ForbiddenException('Vous ne pouvez pas modifier ce module');
     }
@@ -299,9 +297,6 @@ export class FormationsService {
         }),
         ...(dto.teaserVideoUrl !== undefined && { teaserVideoUrl: dto.teaserVideoUrl }),
         ...(dto.level !== undefined && { level: dto.level }),
-        ...(dto.sharePointFolderUrl !== undefined && {
-          sharePointFolderUrl: dto.sharePointFolderUrl,
-        }),
         ...(dto.authorName !== undefined && { authorName: dto.authorName }),
         ...(dto.authorBio !== undefined && { authorBio: dto.authorBio }),
         ...(dto.authorAvatarUrl !== undefined && { authorAvatarUrl: dto.authorAvatarUrl }),
@@ -312,55 +307,46 @@ export class FormationsService {
   }
 
   /**
-   * Supprime un module (admin ou responsable). Si le module a un responsable assigné,
-   * celui-ci est également supprimé pour garder la cohérence des données.
+   * Supprime un module (admin ou responsable).
+   * Si le module avait un responsable, on lui retire uniquement son rôle de responsable
+   * et on le remet en simple employé — son compte et ses inscriptions sont préservés.
    */
-  async supprimer(id: string, userId: string, role: string): Promise<{ message: string }> {
+  async supprimer(
+    id: string,
+    userId: string,
+    role: string,
+    roles?: string[]
+  ): Promise<{ message: string }> {
     const module_ = await this.prisma.module.findUnique({ where: { id } });
     if (!module_) {
       throw new NotFoundException('Module introuvable');
     }
-    const peutSupprimer =
-      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    const peutSupprimer = isAdminLike(role, roles) || module_.managerId === userId;
     if (!peutSupprimer) {
       throw new ForbiddenException('Vous ne pouvez pas supprimer ce module');
     }
     const managerId = module_.managerId;
     await this.prisma.module.delete({ where: { id } });
     if (managerId) {
-      await this.prisma.user.delete({ where: { id: managerId } }).catch(() => {
-        // Ignore si l'utilisateur a déjà été supprimé (évite erreur en cas de race)
-      });
-    }
-    return { message: 'Module supprimé' };
-  }
-
-  /**
-   * Retourne la première vidéo (URL YouTube) par module pour utiliser comme image de présentation.
-   * Ordre : premier chapitre (order), premier item vidéo (order).
-   */
-  private async getFirstVideoUrlByModuleIds(moduleIds: string[]): Promise<Record<string, string>> {
-    if (moduleIds.length === 0) return {};
-    const items = await this.prisma.chapterItem.findMany({
-      where: {
-        type: 'video',
-        videoUrl: { not: null },
-        chapter: { moduleId: { in: moduleIds } },
-      },
-      orderBy: [{ chapter: { order: 'asc' } }, { order: 'asc' }],
-      select: {
-        videoUrl: true,
-        chapter: { select: { moduleId: true } },
-      },
-    });
-    const result: Record<string, string> = {};
-    for (const item of items) {
-      const moduleId = (item.chapter as { moduleId: string }).moduleId;
-      if (moduleId && !result[moduleId] && item.videoUrl) {
-        result[moduleId] = item.videoUrl;
+      try {
+        const manager = await this.prisma.user.findUnique({
+          where: { id: managerId },
+          select: { roles: true },
+        });
+        if (manager) {
+          const managerRoleValues = ['module_manager_internal', 'module_manager_external'];
+          const newRoles = manager.roles.filter((r) => !managerRoleValues.includes(r));
+          const rolesFinaux = newRoles.includes('employee') ? newRoles : [...newRoles, 'employee'];
+          await this.prisma.user.update({
+            where: { id: managerId },
+            data: { role: 'employee', roles: rolesFinaux },
+          });
+        }
+      } catch {
+        // Ignore si le manager a déjà été supprimé ou n'existe plus
       }
     }
-    return result;
+    return { message: 'Module supprimé' };
   }
 
   private async calculerDureeTotaleMinutes(moduleId: string): Promise<number> {
@@ -545,7 +531,7 @@ export class FormationsService {
         userId: e.user.id,
         fullName: e.user.fullName,
         email: e.user.email,
-        progressPercent: e.progressPercent,
+        progressPercent: e.completedAt ? 100 : e.progressPercent,
         completedAt: e.completedAt?.toISOString() ?? null,
         quizzesCompleted,
         totalQuizzes: quizCount,
@@ -577,7 +563,8 @@ export class FormationsService {
   async statsStudentDetail(
     enrollmentId: string,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{
     fullName: string;
     progressPercent: number;
@@ -598,8 +585,7 @@ export class FormationsService {
       throw new NotFoundException('Inscription introuvable');
     }
     const module_ = enrollment.module as { id: string; managerId: string | null };
-    const peutVoir =
-      role === 'admin' || role === 'platform_manager' || module_.managerId === userId;
+    const peutVoir = isAdminLike(role, roles) || module_.managerId === userId;
     if (!peutVoir) {
       throw new ForbiddenException('Accès refusé');
     }
@@ -631,7 +617,7 @@ export class FormationsService {
     }));
     return {
       fullName: enrollment.user.fullName,
-      progressPercent: enrollment.progressPercent,
+      progressPercent: enrollment.completedAt ? 100 : enrollment.progressPercent,
       finalQuizScore: finalAttempt?.scorePercent ?? null,
       finalQuizPassedAt: finalAttempt?.submittedAt?.toISOString() ?? null,
       chapterScores,

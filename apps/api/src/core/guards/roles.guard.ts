@@ -1,5 +1,6 @@
 /**
- * Guard des rôles : vérifie que l'utilisateur courant a l'un des rôles autorisés.
+ * Guard des rôles : vérifie que l'utilisateur courant possède au moins un rôle autorisé.
+ * Compatible multi-rôles : vérifie dans `roles[]` puis fallback sur `role` (rétrocompatibilité).
  * À utiliser après JwtAuthGuard (pour avoir request.user).
  */
 
@@ -26,7 +27,8 @@ export class RolesGuard implements CanActivate {
     if (!user) {
       throw new ForbiddenException('Accès refusé');
     }
-    const aUnRoleAutorise = rolesExiges.includes(user.role as RoleType);
+    const userRoles: string[] = user.roles?.length ? user.roles : [user.role];
+    const aUnRoleAutorise = userRoles.some((r) => rolesExiges.includes(r as RoleType));
     if (!aUnRoleAutorise) {
       throw new ForbiddenException('Droits insuffisants');
     }

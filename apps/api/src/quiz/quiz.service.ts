@@ -217,7 +217,7 @@ export class QuizService {
       }
       await this.prisma.enrollment.update({
         where: { id: enrollmentId },
-        data: { completedAt: new Date() },
+        data: { completedAt: new Date(), progressPercent: 100 },
       });
     }
 
@@ -241,7 +241,7 @@ export class QuizService {
   }
 
   /**
-   * Liste les tentatives d'un quiz (pour le responsable : correction quiz final).
+   * Liste les tentatives d'un quiz final pour suivi (sans correction manuelle).
    */
   async trouverTentativesPourQuiz(
     quizId: string,

@@ -143,13 +143,15 @@ export function StudentHeader(
                         className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
                       >
                         <div className="relative w-24 h-14 flex-shrink-0 rounded overflow-hidden bg-gray-200">
-                          <Image
-                            src={course.imageUrl || '/placeholder-course.jpg'}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="96px"
-                          />
+                          {course.imageUrl ? (
+                            <Image
+                              src={course.imageUrl}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="96px"
+                            />
+                          ) : null}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-facam-dark line-clamp-2">

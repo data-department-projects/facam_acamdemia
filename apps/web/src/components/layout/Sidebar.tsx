@@ -38,7 +38,7 @@ const moduleManagerNav = [
 ];
 
 const adminNav = [
-  { href: '/admin', label: 'Dashboard global', icon: LayoutDashboard },
+  { href: '/admin/modules/stats', label: 'Statistiques modules', icon: BarChart3 },
   { href: '/admin/analytics/learners', label: 'Learners Explorer', icon: Sparkles },
   { href: '/admin/modules', label: 'Gestion des modules', icon: BookOpen },
   { href: '/admin/users', label: 'Gestion utilisateurs', icon: Users },
