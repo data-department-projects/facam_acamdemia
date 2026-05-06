@@ -1,5 +1,5 @@
 /**
- * Contrôleur utilisateurs : CRUD réservé à l'admin, liste et détil.
+ * Contrôleur utilisateurs : CRUD réservé à l'admin, liste et déti.
  */
 
 import {
