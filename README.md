@@ -1,14 +1,13 @@
 # FACAM ACADEMIA
 
-Plateforme e-learning dédiée aux jeunes diplômés pour les formations industrielles (maintenane, production, QHSE, logistique).
+Plateforme e-learning dédié aux jeunes diplômés pour les formations industrielles (maintenane, production, QHSE, logistique)
 
 ## Stack
 
-- **Monorepo** : npm workspaces + Turborepo
+- **Monorepo** : npm workspaces + Turborep
 - **Frontend** : Next.js 15 (App Router), React 19, Tailwind CSS
 - **Backend** : Nest.js, Prisma (Supabase)
-- **CI/CD** : GitHub Actions ; déploiement Vercel (web) + Railway (API)
-
+- **CI/CD** : GitHub Actions ; déploiement Vercel (web) + Render 
 ## Prérequis
 
 - Node.js 20+ (LTS)
