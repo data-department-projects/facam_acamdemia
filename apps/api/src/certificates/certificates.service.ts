@@ -7,7 +7,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import PDFDocument from 'pdfkit';
 import fs from 'node:fs';
 import path from 'node:path';
-import JSZip from 'jszip';
+
+function isAdminLike(role: string, roles?: string[]): boolean {
+  const all = roles?.length ? roles : [role];
+  return all.includes('admin') || all.includes('platform_manager');
+}
 
 /** Données nécessaires pour générer le PDF. */
 export interface CertificatePdfData {
@@ -171,33 +175,59 @@ export class CertificatesService {
   }
 
   /**
-   * Résout les assets PDF (template + signature) depuis un chemin unique.
-   * Convention projet:
-   * - template: apps/web/public/attestion-template.jpeg
-   * - signature: apps/web/public/signature.png
+   * Résout les assets PDF (template + signature).
+   *
+   * Ordre de priorité :
+   * 1. Variables d'environnement CERTIFICATE_TEMPLATE_PATH / CERTIFICATE_SIGNATURE_PATH
+   *    → À configurer sur Render (chemin absolu vers les fichiers uploadés sur le serveur)
+   * 2. Chemins relatifs à __dirname (fonctionne en dev src/ et en prod dist/src/)
+   *    → Couvre le cas monorepo où apps/web/public/ est accessible depuis l'API
+   * 3. Chemins relatifs à process.cwd() (fallback)
    */
   private resolveCertificateAssets(): {
     templatePath: string | null;
     signaturePath: string | null;
   } {
+    // — Priorité 1 : variables d'environnement —
+    const templateEnv = process.env.CERTIFICATE_TEMPLATE_PATH;
+    const signatureEnv = process.env.CERTIFICATE_SIGNATURE_PATH;
+    if (templateEnv && fs.existsSync(templateEnv)) {
+      return {
+        templatePath: templateEnv,
+        signaturePath: signatureEnv && fs.existsSync(signatureEnv) ? signatureEnv : null,
+      };
+    }
+
+    const templateCandidates = [
+      'attestation-template.jpeg',
+      'attestation-template.jpg',
+      'attestation-template.png',
+      'template.jpeg',
+      'template.jpg',
+      'template.png',
+    ];
+    const signatureCandidates = ['signature.png', 'signature.jpeg', 'signature.jpg'];
+
+    // — Priorité 2 : apps/api/assets/ copié par nest-cli.json dans dist/assets/ au build —
+    // __dirname/../.. = apps/api/ (dev) ou apps/api/dist/ (prod) → même chemin relatif
+    const dirnameBasedDirs = [
+      path.join(__dirname, '..', '..', 'assets'), // apps/api/assets/ ou dist/assets/
+      path.join(__dirname, '..', '..', '..', 'apps', 'web', 'public'), // monorepo dev
+      path.join(__dirname, '..', '..', '..', '..', 'apps', 'web', 'public'), // monorepo prod (dist/)
+    ];
+
+    // — Priorité 3 : process.cwd() —
     const cwd = process.cwd();
-    const publicDirs = [
+    const cwdBasedDirs = [
       path.join(cwd, 'apps', 'web', 'public'),
       path.join(cwd, '..', 'web', 'public'),
       path.join(cwd, '..', '..', 'apps', 'web', 'public'),
     ];
-    const templateCandidates = [
-      'template.png',
-      'template.jpeg',
-      'template.jpg',
-      'attestation-template.png',
-      'attestation-template.jpeg',
-      'attestation-template.jpg',
-    ];
-    const signatureCandidates = ['signature.png', 'signature.jpeg', 'signature.jpg'];
+
     let templatePath: string | null = null;
     let signaturePath: string | null = null;
-    for (const dir of publicDirs) {
+
+    for (const dir of [...dirnameBasedDirs, ...cwdBasedDirs]) {
       if (!fs.existsSync(dir)) continue;
       if (!templatePath) {
         for (const file of templateCandidates) {
@@ -220,10 +250,7 @@ export class CertificatesService {
       if (templatePath && signaturePath) break;
     }
 
-    return {
-      templatePath,
-      signaturePath,
-    };
+    return { templatePath, signaturePath };
   }
 
   /**
@@ -425,7 +452,8 @@ export class CertificatesService {
   async trouverPourInscription(
     enrollmentId: string,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{
     id: string;
     fullName: string;
@@ -442,7 +470,7 @@ export class CertificatesService {
     if (!certificate) {
       throw new NotFoundException('Certificat introuvable');
     }
-    if (certificate.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+    if (certificate.userId !== userId && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     const user = await this.prisma.user.findUnique({
@@ -466,9 +494,10 @@ export class CertificatesService {
   async getPdfBuffer(
     enrollmentId: string,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const data = await this.trouverPourInscription(enrollmentId, userId, role);
+    const data = await this.trouverPourInscription(enrollmentId, userId, role, roles);
     const pdfData: CertificatePdfData = {
       fullName: data.fullName,
       moduleTitle: data.moduleTitle,
@@ -483,38 +512,6 @@ export class CertificatesService {
   }
 
   /**
-   * Génère un ZIP contenant plusieurs certificats PDF.
-   * Chaque entrée est nommée `certificat_[nom].pdf` avec suffixe numérique en cas de doublon.
-   */
-  async getBatchZipBuffer(
-    enrollmentIds: string[],
-    userId: string,
-    role: string
-  ): Promise<{ buffer: Buffer; filename: string; count: number }> {
-    const uniqueIds = Array.from(new Set(enrollmentIds.filter((id) => id.trim().length > 0)));
-    if (uniqueIds.length === 0) {
-      throw new NotFoundException('Aucune inscription valide fournie.');
-    }
-    const zip = new JSZip();
-    const filenameCount = new Map<string, number>();
-    for (const enrollmentId of uniqueIds) {
-      const { buffer, filename } = await this.getPdfBuffer(enrollmentId, userId, role);
-      const index = filenameCount.get(filename) ?? 0;
-      filenameCount.set(filename, index + 1);
-      const finalName =
-        index === 0 ? filename : filename.replace(/\.pdf$/i, `_${String(index + 1)}.pdf`);
-      zip.file(finalName, buffer);
-    }
-    const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-    const stamp = new Date().toISOString().replaceAll(/[:.]/g, '-');
-    return {
-      buffer: out,
-      filename: `certificats_batch_${stamp}.zip`,
-      count: uniqueIds.length,
-    };
-  }
-
-  /**
    * Liste les certificats de l'utilisateur courant.
    */
   async trouverPourUtilisateur(userId: string): Promise<unknown[]> {
@@ -525,6 +522,7 @@ export class CertificatesService {
     return certificates.map((c) => ({
       id: c.id,
       moduleId: c.moduleId,
+      enrollmentId: c.enrollmentId,
       moduleTitle: c.module.title,
       finalGrade: c.finalGrade,
       mention: c.mention,

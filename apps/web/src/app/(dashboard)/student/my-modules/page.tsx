@@ -45,8 +45,6 @@ export default function StudentMyModulesPage() {
     };
   }, []);
 
-  const imgSrc = (url?: string) => url || '/placeholder-course.jpg';
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">Mes modules</h1>
@@ -59,13 +57,15 @@ export default function StudentMyModulesPage() {
           {modules.map((mod) => (
             <Card key={mod.id} className="overflow-hidden">
               <div className="relative h-40 w-full bg-slate-200">
-                <Image
-                  src={imgSrc(mod.imageUrl)}
-                  alt={mod.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 50vw, 33vw"
-                />
+                {mod.imageUrl ? (
+                  <Image
+                    src={mod.imageUrl}
+                    alt={mod.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 100vw, 50vw, 33vw"
+                  />
+                ) : null}
                 {mod.progress !== undefined && (
                   <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-300">
                     <div className="h-full bg-facam-blue" style={{ width: `${mod.progress}%` }} />

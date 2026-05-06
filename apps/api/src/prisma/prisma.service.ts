@@ -1,21 +1,22 @@
 /**
- * PrismaService — Injection du client Prisma dans NestJS.
- * Rôle : connexion à la base PostgreSQL, accès aux modèles (User, Module, Quiz, etc.).
- * À connaître : lifecycle (onModuleInit/onModuleDestroy) pour ouvrir/fermer la connexion.
+ * PrismaService — Injection du client Prisma v7 dans NestJS.
+ * Prisma v7 exige un driver adapter : @prisma/adapter-pg pour PostgreSQL.
+ * Le PrismaClient reçoit l'adapter dans son constructeur.
  */
 
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    super();
+    const connectionString = process.env.DATABASE_URL ?? '';
+    const adapter = new PrismaPg({ connectionString });
+    super({ adapter });
   }
 
   async onModuleInit() {
-    // Connexion reportée au premier usage pour ne pas bloquer le démarrage (healthcheck plateforme).
-    // Si DATABASE_URL est absente ou la DB injoignable, l'app écoute quand même et /health répond.
     try {
       await this.$connect();
     } catch (err) {

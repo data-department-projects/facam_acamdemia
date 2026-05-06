@@ -83,7 +83,7 @@ export class FormationsController {
     @Query('enrollmentId') enrollmentId: string,
     @CurrentUser() user: UtilisateurPayload
   ) {
-    return this.formationsService.statsStudentDetail(enrollmentId, user.sub, user.role);
+    return this.formationsService.statsStudentDetail(enrollmentId, user.sub, user.role, user.roles);
   }
 
   /** Couverture module → Supabase `images/modules/{id}/` (multipart `file`, max 5 Mo, JPG/PNG/WebP). */
@@ -104,7 +104,13 @@ export class FormationsController {
     if (!file) {
       throw new BadRequestException('Fichier image requis (champ multipart « file »).');
     }
-    return this.formationsService.telechargerCouvertureModule(id, file, user.sub, user.role);
+    return this.formationsService.telechargerCouvertureModule(
+      id,
+      file,
+      user.sub,
+      user.role,
+      user.roles
+    );
   }
 
   @Get(':id')
@@ -120,12 +126,18 @@ export class FormationsController {
     @Body() updateFormationDto: UpdateFormationDto,
     @CurrentUser() user: UtilisateurPayload
   ) {
-    return this.formationsService.mettreAJour(id, updateFormationDto, user.sub, user.role);
+    return this.formationsService.mettreAJour(
+      id,
+      updateFormationDto,
+      user.sub,
+      user.role,
+      user.roles
+    );
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   async supprimer(@Param('id') id: string, @CurrentUser() user: UtilisateurPayload) {
-    return this.formationsService.supprimer(id, user.sub, user.role);
+    return this.formationsService.supprimer(id, user.sub, user.role, user.roles);
   }
 }

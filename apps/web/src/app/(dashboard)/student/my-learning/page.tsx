@@ -181,13 +181,15 @@ export default function MyLearningPage() {
                 >
                   <Link href={`/student/modules/${course.id}`} className="block">
                     <div className="relative h-40 w-full bg-gray-200">
-                      <Image
-                        src={course.imageUrl || '/placeholder-course.jpg'}
-                        alt={course.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      />
+                      {course.imageUrl ? (
+                        <Image
+                          src={course.imageUrl}
+                          alt={course.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        />
+                      ) : null}
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <PlayCircle className="size-12 text-white" strokeWidth={1.5} />
                       </div>

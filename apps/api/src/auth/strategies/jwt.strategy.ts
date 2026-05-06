@@ -1,5 +1,5 @@
 /**
- * Stratégie Passport JWT : valide le token et attache le payload à request.user.
+ * Stratégie Passport JWT : valide le token et attache le payload (multi-rôles) à request.user.
  */
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
@@ -13,6 +13,7 @@ interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  roles?: string[];
   fullName: string;
 }
 
@@ -32,15 +33,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<UtilisateurPayload> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, fullName: true, role: true },
+      select: { id: true, email: true, fullName: true, role: true, roles: true },
     });
     if (!user) {
       throw new UnauthorizedException('Utilisateur introuvable');
     }
+    const effectiveRoles = user.roles.length > 0 ? user.roles : [user.role];
     return {
       sub: user.id,
       email: user.email,
       role: user.role,
+      roles: effectiveRoles,
       fullName: user.fullName,
     };
   }

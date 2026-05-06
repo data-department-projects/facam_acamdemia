@@ -18,7 +18,6 @@ interface ApiModule {
   title: string;
   description?: string;
   imageUrl?: string;
-  firstVideoUrl?: string | null;
   chaptersCount?: number;
   progress?: number;
   completedAt?: string | null;

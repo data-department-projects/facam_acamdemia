@@ -20,7 +20,6 @@ interface ApiModule {
   title: string;
   description?: string;
   imageUrl?: string;
-  firstVideoUrl?: string | null;
   chaptersCount?: number;
   progress?: number;
   completedAt?: string | null;
@@ -143,49 +142,54 @@ export default function StudentModulesCataloguePage() {
               <p className="text-gray-500">Chargement…</p>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {modules.map((mod) => (
-                  <Card key={mod.id} className="overflow-hidden flex flex-col">
-                    <div className="relative h-48 w-full bg-slate-200">
-                      <Image
-                        src={imgSrc(mod)}
-                        alt={mod.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      />
-                      {mod.progress !== undefined && mod.progress > 0 && (
-                        <div className="absolute bottom-2 left-2 right-2 h-1.5 rounded-full bg-slate-300">
-                          <div
-                            className="h-full rounded-full bg-facam-blue"
-                            style={{ width: `${mod.progress}%` }}
+                {modules.map((mod) => {
+                  const displayImage = imgSrc(mod);
+                  return (
+                    <Card key={mod.id} className="overflow-hidden flex flex-col">
+                      <div className="relative h-48 w-full bg-slate-200">
+                        {displayImage ? (
+                          <Image
+                            src={displayImage}
+                            alt={mod.title}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                           />
-                        </div>
-                      )}
-                    </div>
-                    <CardContent className="flex-1 pt-4">
-                      <h2 className="font-semibold text-slate-900 line-clamp-2">{mod.title}</h2>
-                      <p className="mt-1 text-sm text-slate-500 line-clamp-2">
-                        {mod.description ?? ''}
-                      </p>
-                      <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <BookOpen className="size-3.5" />
-                          {mod.chaptersCount ?? 0} chapitres
-                        </span>
+                        ) : null}
+                        {mod.progress !== undefined && mod.progress > 0 && (
+                          <div className="absolute bottom-2 left-2 right-2 h-1.5 rounded-full bg-slate-300">
+                            <div
+                              className="h-full rounded-full bg-facam-blue"
+                              style={{ width: `${mod.progress}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Link
-                        href={`/student/modules?moduleId=${encodeURIComponent(mod.id)}`}
-                        className="w-full"
-                      >
-                        <Button variant="outline" className="w-full">
-                          Voir les cours
-                        </Button>
-                      </Link>
-                    </CardFooter>
-                  </Card>
-                ))}
+                      <CardContent className="flex-1 pt-4">
+                        <h2 className="font-semibold text-slate-900 line-clamp-2">{mod.title}</h2>
+                        <p className="mt-1 text-sm text-slate-500 line-clamp-2">
+                          {mod.description ?? ''}
+                        </p>
+                        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="size-3.5" />
+                            {mod.chaptersCount ?? 0} chapitres
+                          </span>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Link
+                          href={`/student/modules?moduleId=${encodeURIComponent(mod.id)}`}
+                          className="w-full"
+                        >
+                          <Button variant="outline" className="w-full">
+                            Voir les cours
+                          </Button>
+                        </Link>
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
               </div>
             )}
             {!loadingCatalogue && modules.length === 0 && (
@@ -214,7 +218,7 @@ export default function StudentModulesCataloguePage() {
               <p className="text-gray-500">Chargement des cours…</p>
             ) : moduleDetail?.courses && moduleDetail.courses.length > 0 ? (
               <div className="space-y-6">
-                {(moduleDetail.courses as ApiCourse[])
+                {moduleDetail.courses
                   .sort((a, b) => a.order - b.order)
                   .map((course) => {
                     const chapters = (course.chapters ?? []).sort((a, b) => a.order - b.order);

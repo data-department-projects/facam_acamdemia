@@ -23,6 +23,6 @@
       "@nestjs/passport/*": ["../../node_modules/@nestjs/passport/*"]
     }
   },
-  "include": ["src/**/*", "prisma/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "prisma/**/*", "prisma.config.ts"],
+  "exclude": ["node_modules", "dist", "src/generated"]
 }

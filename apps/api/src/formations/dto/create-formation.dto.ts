@@ -33,10 +33,6 @@ export class CreateFormationDto {
   @IsIn(NIVEAUX)
   level?: (typeof NIVEAUX)[number];
 
-  @IsOptional()
-  @IsUrl()
-  sharePointFolderUrl?: string;
-
   @IsString()
   @MaxLength(120)
   authorName: string;

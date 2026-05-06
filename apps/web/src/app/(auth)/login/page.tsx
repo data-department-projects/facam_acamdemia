@@ -1,6 +1,7 @@
 /**
  * Page de connexion — Appel API POST /auth/login puis fallback comptes démo si API indisponible.
  * Stocke le JWT et l'utilisateur (facam_token, facam_user) pour le reste de l'app.
+ * Redirige selon le nombre de rôles : un seul → interface directe, plusieurs → /select-role.
  */
 
 'use client';
@@ -10,11 +11,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { setAuthSession, ROLE_HOME } from '@/lib/auth';
+import { setAuthSession, getPostLoginRedirect, ROLE_HOME } from '@/lib/auth';
 import { api, setAccessToken } from '@/lib/api-client';
 import type { UserRole } from '@/types';
 
-// Fallback local si API indisponible — admin aligné sur le seed (Admin123!)
 const DEMO_ACCOUNTS: Record<string, { password: string; role: UserRole; fullName: string }> = {
   'admin@facam.com': { password: 'Admin123!', role: 'admin', fullName: 'Administrateur FACAM' },
 };
@@ -26,6 +26,10 @@ interface LoginResponse {
     email: string;
     fullName: string;
     role: string;
+    roles: string[];
+    employeeId?: string | null;
+    phoneNumber1?: string | null;
+    phoneNumber2?: string | null;
     firstLoginAt: string | null;
     avatarUrl?: string | null;
   };
@@ -48,27 +52,34 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     const emailTrimmed = email.trim().toLowerCase();
-
     try {
       const res = await api.post<LoginResponse>('/auth/login', {
         email: emailTrimmed,
         password,
       });
       setAccessToken(res.accessToken);
+      const userRoles =
+        (res.user.roles ?? []).length > 0
+          ? (res.user.roles as UserRole[])
+          : [res.user.role as UserRole];
       setAuthSession(
         {
           id: res.user.id,
           email: res.user.email,
           fullName: res.user.fullName,
-          role: res.user.role as UserRole,
+          role: userRoles[0],
+          roles: userRoles,
+          employeeId: res.user.employeeId,
+          phoneNumber1: res.user.phoneNumber1,
+          phoneNumber2: res.user.phoneNumber2,
           firstLoginAt: res.user.firstLoginAt,
           avatarUrl: res.user.avatarUrl ?? undefined,
         },
         res.accessToken
       );
-      router.push(ROLE_HOME[res.user.role as UserRole]);
+      const redirect = getPostLoginRedirect(userRoles);
+      router.push(redirect);
       return;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur de connexion';
@@ -78,15 +89,12 @@ export default function LoginPage() {
         return;
       }
     }
-
-    // Fallback : comptes démo (si API indisponible ou identifiants non reconnus)
     const account = DEMO_ACCOUNTS[emailTrimmed];
     if (!account || account.password !== password) {
       setError('Identifiants incorrects.');
       setLoading(false);
       return;
     }
-
     const existing =
       typeof window !== 'undefined' ? window.localStorage.getItem('facam_user') : null;
     let firstLoginAt: string | undefined;
@@ -105,6 +113,7 @@ export default function LoginPage() {
     setAuthSession({
       email: emailTrimmed,
       role: account.role,
+      roles: [account.role],
       fullName: account.fullName,
       firstLoginAt,
     });
@@ -117,13 +126,11 @@ export default function LoginPage() {
       <div className="text-center">
         <h2 className="text-3xl font-bold text-facam-dark">Se connecter</h2>
       </div>
-
       {idleLogout && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Votre session a été fermée après 15 minutes sans activité. Veuillez vous reconnecter.
         </div>
       )}
-
       <form onSubmit={handleSubmit} className="space-y-5" suppressHydrationWarning>
         <Input
           label="Email"
@@ -155,18 +162,15 @@ export default function LoginPage() {
             </Link>
           </div>
         </div>
-
         {error && (
           <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm font-medium border border-red-100">
             {error}
           </div>
         )}
-
         <Button type="submit" className="w-full h-12 text-lg" variant="accent" disabled={loading}>
           {loading ? 'Connexion...' : 'Se connecter'}
         </Button>
       </form>
-
       <div className="mt-6 p-4 bg-facam-blue-tint/50 rounded-lg text-xs text-gray-500 text-center border border-facam-blue/10">
         <p className="font-semibold mb-1">Compte admin (créé par le seed) :</p>
         admin@facam.com — Mot de passe : Admin123!
