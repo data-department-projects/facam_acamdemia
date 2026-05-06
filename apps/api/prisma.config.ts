@@ -8,12 +8,12 @@
 import 'dotenv/config';
 import { defineConfig, env } from 'prisma/config';
 
+// DIRECT_URL est requis pour les migrations (prisma migrate) mais pas pour prisma generate.
+// En CI le variable n'est pas définie : on omet le datasource pour éviter PrismaConfigEnvError.
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
   },
-  datasource: {
-    url: env('DIRECT_URL'),
-  },
+  ...(process.env.DIRECT_URL ? { datasource: { url: env('DIRECT_URL') } } : {}),
 });
