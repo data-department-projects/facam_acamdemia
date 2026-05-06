@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Download, FileText, Loader2 } from 'lucide-react';
+import { useActivityPing } from '@/hooks/useActivityPing';
+import { Download, FileText, FileDown, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -77,6 +78,8 @@ export function ChapterPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isReviewMode = searchParams.get('review') === '1';
+
+  useActivityPing(moduleId, enrollmentId);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,7 +287,6 @@ export function ChapterPageClient({
         id: ch.id,
         title: ch.title,
         order: ch.order,
-        durationMinutes: 15,
         items: [
           ...(ch.items?.some((i) => i.type === 'video')
             ? [
@@ -536,11 +538,11 @@ export function ChapterPageClient({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="size-5" />
+                  <FileDown className="size-5 text-facam-blue" />
                   Ressources téléchargeables
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {documentUrls.length === 0 ? (
                   <p className="text-slate-500 text-sm">Aucun document pour ce chapitre.</p>
                 ) : (
@@ -548,21 +550,25 @@ export function ChapterPageClient({
                     <button
                       key={i}
                       type="button"
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 transition-colors"
+                      className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all duration-200 hover:border-facam-blue/30 hover:bg-facam-blue-tint/30 hover:shadow-sm disabled:opacity-60"
                       onClick={() => void downloadChapterDocument(doc.itemId, doc.label)}
                       disabled={downloadingItemId === doc.itemId}
                     >
-                      <FileText className="size-5 text-slate-500" />
-                      <span className="min-w-0 flex-1 truncate font-medium text-slate-900">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-facam-blue/10 transition-colors group-hover:bg-facam-blue/15">
+                        <FileText className="size-5 text-facam-blue" />
+                      </div>
+                      <span className="min-w-0 flex-1 truncate text-left font-medium text-slate-800 group-hover:text-facam-dark">
                         {doc.label}
                       </span>
                       {downloadingItemId === doc.itemId ? (
                         <Loader2
-                          className="size-5 animate-spin text-facam-yellow"
+                          className="size-5 animate-spin text-facam-blue"
                           aria-label="Téléchargement…"
                         />
                       ) : (
-                        <Download className="size-5 text-facam-yellow" aria-hidden />
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-facam-blue to-sky-500 text-white shadow-sm transition-transform duration-200 group-hover:scale-110">
+                          <Download className="size-4" />
+                        </div>
                       )}
                     </button>
                   ))

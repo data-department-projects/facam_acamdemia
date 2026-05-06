@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
+  ArrowUp,
   Award,
   BookOpen,
   ChevronDown,
@@ -24,6 +25,8 @@ import {
   Factory,
   Handshake,
   Heart,
+  LogIn,
+  Mail,
   Network,
   ShieldCheck,
   Sparkles,
@@ -100,6 +103,12 @@ const LEARNING_OUTCOMES = [
     icon: Handshake,
   },
 ] as const;
+
+const FOOTER_QUICK_LINKS: readonly { label: string; href: string }[] = [
+  { label: 'Programmes phares', href: '/#programmes' },
+  { label: 'Foire aux questions', href: '/#faq' },
+  { label: 'Connexion', href: '/login' },
+];
 
 const FAQ_ITEMS = [
   {
@@ -226,7 +235,6 @@ function SafeImage({
 }
 
 function LogoTicker() {
-  const reduce = useReducedMotion();
   const items = [
     'Industrie',
     'Maintenance',
@@ -238,26 +246,23 @@ function LogoTicker() {
     'Méthodes',
   ];
 
-  const row = [...items, ...items];
+  // Quadruplé : -50% ramène exactement au point de départ, sans saut visible
+  const row = [...items, ...items, ...items, ...items];
 
   return (
     <div className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white to-transparent" />
-      <motion.div
-        className="flex w-max gap-3 py-2"
-        animate={reduce ? undefined : { x: ['0%', '-50%'] }}
-        transition={reduce ? undefined : { duration: 22, ease: 'linear', repeat: Infinity }}
-      >
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-16 z-10 bg-gradient-to-r from-white to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-16 z-10 bg-gradient-to-l from-white to-transparent" />
+      <div className="animate-marquee flex w-max gap-3 py-2">
         {row.map((label, i) => (
           <div
             key={`${label}-${i}`}
-            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-facam-dark shadow-sm"
+            className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-facam-dark shadow-sm whitespace-nowrap"
           >
             {label}
           </div>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -281,7 +286,7 @@ function SectionShell({
 export function HomeLanding() {
   const reduce = useReducedMotion();
   return (
-    <div className="min-h-screen bg-white font-montserrat overflow-x-hidden">
+    <div id="top" className="min-h-screen scroll-mt-0 bg-white font-montserrat overflow-x-hidden">
       <ScrollProgress />
       <Header user={null} variant="glass" />
 
@@ -674,28 +679,102 @@ export function HomeLanding() {
         </Reveal>
       </SectionShell>
 
-      {/* Footer accueil — style simple type daisyUI, adapte charte FACAM STAIRWAY */}
-      <footer id="footer" className="bg-facam-blue text-facam-white">
-        <div className="container-custom py-10">
-          <div className="flex flex-col items-center text-center">
-            <aside className="flex flex-col items-center">
-              <Image
-                src="/Facam%20Academia-03%202.png"
-                alt={APP_NAME}
-                width={170}
-                height={48}
-                className="h-10 w-auto object-contain"
-                priority
-              />
-              <p className="mt-4 text-base font-bold text-facam-white">
-                FACAM ACADEMIA
-                <br />
+      <footer
+        id="footer"
+        className="relative border-t border-white/10 bg-gradient-to-b from-facam-blue via-facam-blue to-facam-dark text-facam-white"
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-facam-yellow/80 to-transparent"
+          aria-hidden
+        />
+        <div className="container-custom pb-10 pt-14 lg:pb-12 lg:pt-16">
+          <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-12 lg:gap-10">
+            <div className="lg:col-span-5">
+              <Link
+                href="/#top"
+                className="inline-block outline-none ring-offset-2 ring-offset-facam-blue focus-visible:ring-2 focus-visible:ring-facam-yellow"
+              >
+                <Image
+                  src="/Facam%20Academia-03%202.png"
+                  alt={APP_NAME}
+                  width={180}
+                  height={52}
+                  className="h-11 w-auto object-contain drop-shadow-md"
+                />
+              </Link>
+              <p className="mt-5 text-lg font-bold leading-snug text-white">
                 Le canal par lequel explose votre talent !
               </p>
-              <p className="mt-2 text-sm text-facam-white/80">
-                Copyright © {new Date().getFullYear()} - Tous droits reserves
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/75">
+                Formations industrielles en ligne : parcours structurés, quiz, ressources et
+                certification pour faire monter vos compétences au bon niveau.
               </p>
-            </aside>
+            </div>
+            <nav aria-label="Liens du pied de page" className="lg:col-span-3 lg:col-start-7">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-facam-yellow">
+                Liens utiles
+              </p>
+              <ul className="mt-5 space-y-3">
+                {FOOTER_QUICK_LINKS.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="group inline-flex items-center gap-2 text-sm text-white/85 transition-colors hover:text-white"
+                    >
+                      <span
+                        className="h-px w-4 bg-facam-yellow/0 transition-all group-hover:w-6 group-hover:bg-facam-yellow"
+                        aria-hidden
+                      />
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="lg:col-span-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-facam-yellow">
+                Accès à la plateforme
+              </p>
+              <p className="mt-5 text-sm leading-relaxed text-white/80">
+                Les comptes apprenants et collaborateurs sont créés par votre organisation. Si vous
+                avez reçu vos identifiants, utilisez le bouton ci-dessous.
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link href="/login" className="inline-flex">
+                  <Button
+                    variant="accent"
+                    size="md"
+                    className="w-full shadow-lg shadow-black/20 sm:w-auto"
+                  >
+                    <LogIn className="size-4" aria-hidden />
+                    Se connecter
+                  </Button>
+                </Link>
+                <Link
+                  href="/#top"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/90 transition-colors hover:border-white/40 hover:bg-white/5"
+                >
+                  <ArrowUp className="size-4" aria-hidden />
+                  Haut de page
+                </Link>
+              </div>
+              <p className="mt-6 flex items-start gap-2 text-sm text-white/65">
+                <Mail className="mt-0.5 size-4 shrink-0 text-facam-yellow/90" aria-hidden />
+                <span>
+                  Pour toute question liée à votre accès, adressez-vous à l&apos;administrateur de
+                  votre structure.
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="mt-14 flex flex-col gap-4 border-t border-white/10 pt-8 text-xs text-white/55 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              © {new Date().getFullYear()} {APP_NAME}. Tous droits réservés.
+            </p>
+            <p className="max-w-prose sm:text-right">
+              Marque et contenus protégés. L&apos;utilisation de la plateforme est soumise aux
+              règles définies par votre organisation.
+            </p>
           </div>
         </div>
       </footer>

@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api-client';
 import { Modal } from '@/components/ui/Modal';
+import { useActivityPing } from '@/hooks/useActivityPing';
 
 interface ApiQuestion {
   id: string;
@@ -101,6 +102,8 @@ export default function StudentTestFinalPage() {
   const [module_, setModule_] = useState<ApiModule | null>(null);
   const [quiz, setQuiz] = useState<ApiQuiz | null>(null);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+
+  useActivityPing(moduleId, enrollmentId);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [blockedChapterOrder, setBlockedChapterOrder] = useState<number | null>(null);
@@ -298,7 +301,7 @@ export default function StudentTestFinalPage() {
 
   if (loading && !quiz) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Chargement du test final…</p>
       </div>
     );
@@ -336,7 +339,7 @@ export default function StudentTestFinalPage() {
 
   if (!module_?.finalQuizId || (!quiz && !submitted)) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Aucun test final pour ce module.</p>
         <Link href={`/student/modules/${moduleId}`}>
           <Button variant="outline">Retour au module</Button>
@@ -349,7 +352,7 @@ export default function StudentTestFinalPage() {
     const score = normalizeScorePercent(result.scorePercent);
     const passed = result.passed ?? false;
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         {passed ? (
           <Modal
             open={reviewOpen}
@@ -477,7 +480,7 @@ export default function StudentTestFinalPage() {
 
   if (!quiz || quiz.questions.length === 0) {
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
         <p className="text-slate-600">Test final introuvable ou sans questions.</p>
         <Link href={`/student/modules/${moduleId}`}>
           <Button variant="outline">Retour au module</Button>
@@ -490,7 +493,7 @@ export default function StudentTestFinalPage() {
   const currentAnswers = answers[currentIndex] ?? [];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <h1 className="text-xl font-bold text-slate-900">
         Test final {module_ ? `— ${module_.title}` : ''}
       </h1>

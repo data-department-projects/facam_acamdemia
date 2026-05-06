@@ -57,7 +57,6 @@ interface ApiChapter {
 type ChapterFormData = {
   title: string;
   description: string;
-  videoTitle: string;
   videoUrl: string;
   order: number;
 };
@@ -91,7 +90,6 @@ export default function ModuleManagerModulesPage() {
   const [chapterForm, setChapterForm] = useState<ChapterFormData>({
     title: '',
     description: '',
-    videoTitle: '',
     videoUrl: '',
     order: 1,
   });
@@ -231,7 +229,6 @@ export default function ModuleManagerModulesPage() {
     setChapterForm({
       title: '',
       description: '',
-      videoTitle: '',
       videoUrl: '',
       order: list.length + 1,
     });
@@ -248,7 +245,6 @@ export default function ModuleManagerModulesPage() {
     setChapterForm({
       title: ch.title,
       description: ch.description ?? '',
-      videoTitle: '',
       videoUrl: '',
       order: ch.order,
     });
@@ -270,7 +266,6 @@ export default function ModuleManagerModulesPage() {
           title: chapterForm.title.trim(),
           description: chapterForm.description.trim() || undefined,
           order: chapterForm.order,
-          videoTitle: chapterForm.videoTitle.trim() || undefined,
           videoUrl: chapterForm.videoUrl.trim() || undefined,
           minScoreToPass: chapterQuizMinScore,
           quizQuestions: chapterQuizQuestions.some(
@@ -595,12 +590,6 @@ export default function ModuleManagerModulesPage() {
           </div>
           {chapterModal === 'new' && (
             <>
-              <Input
-                label="Titre de la vidéo (YouTube)"
-                value={chapterForm.videoTitle}
-                onChange={(e) => setChapterForm((f) => ({ ...f, videoTitle: e.target.value }))}
-                placeholder="Ex. Démonstration"
-              />
               <Input
                 label="Lien de la vidéo (YouTube)"
                 value={chapterForm.videoUrl}

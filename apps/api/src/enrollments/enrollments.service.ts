@@ -12,6 +12,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import type { UpdateProgressionDto } from './dto/update-progression.dto';
 
+function isAdminLike(role: string, roles?: string[]): boolean {
+  const all = roles?.length ? roles : [role];
+  return all.includes('admin') || all.includes('platform_manager');
+}
+
 @Injectable()
 export class EnrollmentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -25,7 +30,12 @@ export class EnrollmentsService {
     userId: string,
     role: string
   ): Promise<{ id: string; moduleId: string; alreadyEnrolled: boolean }> {
-    const isLearner = role === 'student' || role === 'employee';
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { roles: true, role: true },
+    });
+    const userRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [role];
+    const isLearner = userRoles.includes('student') || userRoles.includes('employee');
     if (!isLearner) {
       throw new ForbiddenException('Seuls les étudiants et employés peuvent démarrer un module');
     }
@@ -59,9 +69,14 @@ export class EnrollmentsService {
    * Inscrit un étudiant à un module (admin uniquement).
    */
   async creer(dto: CreateEnrollmentDto): Promise<{ id: string; userId: string; moduleId: string }> {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
-    if (user?.role !== 'student') {
-      throw new NotFoundException('Étudiant introuvable');
+    const user = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+      select: { id: true, role: true, roles: true },
+    });
+    const targetRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+    const estApprenant = targetRoles.includes('student') || targetRoles.includes('employee');
+    if (!user || !estApprenant) {
+      throw new NotFoundException('Apprenant introuvable');
     }
     const module_ = await this.prisma.module.findUnique({ where: { id: dto.moduleId } });
     if (!module_) {
@@ -86,10 +101,11 @@ export class EnrollmentsService {
   async trouverPourUtilisateur(
     userId: string,
     role: string,
-    userIdCible?: string
+    userIdCible?: string,
+    roles?: string[]
   ): Promise<unknown[]> {
     const id = userIdCible ?? userId;
-    if (userIdCible && role !== 'admin' && role !== 'platform_manager') {
+    if (userIdCible && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     const enrollments = await this.prisma.enrollment.findMany({
@@ -109,7 +125,7 @@ export class EnrollmentsService {
     return enrollments.map((e) => ({
       id: e.id,
       moduleId: e.moduleId,
-      progressPercent: e.progressPercent,
+      progressPercent: e.completedAt ? 100 : e.progressPercent,
       lastViewedChapterId: e.lastViewedChapterId,
       lastViewedItemId: e.lastViewedItemId,
       completedAt: e.completedAt?.toISOString() ?? null,
@@ -125,7 +141,8 @@ export class EnrollmentsService {
     enrollmentId: string,
     dto: UpdateProgressionDto,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ progressPercent: number }> {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
@@ -134,26 +151,26 @@ export class EnrollmentsService {
     if (!enrollment) {
       throw new NotFoundException('Inscription introuvable');
     }
-    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+    if (enrollment.userId !== userId && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     const totalItems = enrollment.module.chapters.reduce((acc, ch) => acc + ch.items.length, 0);
     let progressPercent = enrollment.progressPercent;
-    if (dto.lastViewedItemId && totalItems > 0) {
-      const completed = await this.prisma.enrollmentProgress.count({
-        where: { enrollmentId },
+    await this.prisma.$transaction(async (tx) => {
+      if (dto.lastViewedItemId && totalItems > 0) {
+        const completed = await tx.enrollmentProgress.count({ where: { enrollmentId } });
+        progressPercent = Math.min(100, Math.round((completed / totalItems) * 100));
+      }
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: {
+          ...(dto.lastViewedChapterId !== undefined && {
+            lastViewedChapterId: dto.lastViewedChapterId,
+          }),
+          ...(dto.lastViewedItemId !== undefined && { lastViewedItemId: dto.lastViewedItemId }),
+          progressPercent,
+        },
       });
-      progressPercent = Math.min(100, Math.round((completed / totalItems) * 100));
-    }
-    await this.prisma.enrollment.update({
-      where: { id: enrollmentId },
-      data: {
-        ...(dto.lastViewedChapterId !== undefined && {
-          lastViewedChapterId: dto.lastViewedChapterId,
-        }),
-        ...(dto.lastViewedItemId !== undefined && { lastViewedItemId: dto.lastViewedItemId }),
-        progressPercent,
-      },
     });
     return { progressPercent };
   }
@@ -165,7 +182,8 @@ export class EnrollmentsService {
     enrollmentId: string,
     chapterItemId: string,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ completed: boolean }> {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
@@ -174,7 +192,7 @@ export class EnrollmentsService {
     if (!enrollment) {
       throw new NotFoundException('Inscription introuvable');
     }
-    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+    if (enrollment.userId !== userId && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     const itemAppartientAuModule = enrollment.module.chapters.some((ch) =>
@@ -183,22 +201,20 @@ export class EnrollmentsService {
     if (!itemAppartientAuModule) {
       throw new NotFoundException('Élément introuvable dans ce module');
     }
-    await this.prisma.enrollmentProgress.upsert({
-      where: {
-        enrollmentId_chapterItemId: { enrollmentId, chapterItemId },
-      },
-      create: { enrollmentId, chapterItemId },
-      update: {},
-    });
     const totalItems = enrollment.module.chapters.reduce((acc, ch) => acc + ch.items.length, 0);
-    const completed = await this.prisma.enrollmentProgress.count({
-      where: { enrollmentId },
-    });
-    const progressPercent =
-      totalItems > 0 ? Math.min(100, Math.round((completed / totalItems) * 100)) : 0;
-    await this.prisma.enrollment.update({
-      where: { id: enrollmentId },
-      data: { progressPercent },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.enrollmentProgress.upsert({
+        where: { enrollmentId_chapterItemId: { enrollmentId, chapterItemId } },
+        create: { enrollmentId, chapterItemId },
+        update: {},
+      });
+      const completed = await tx.enrollmentProgress.count({ where: { enrollmentId } });
+      const progressPercent =
+        totalItems > 0 ? Math.min(100, Math.round((completed / totalItems) * 100)) : 0;
+      await tx.enrollment.update({
+        where: { id: enrollmentId },
+        data: { progressPercent },
+      });
     });
     return { completed: true };
   }
@@ -210,7 +226,8 @@ export class EnrollmentsService {
   async listerElementsCompletes(
     enrollmentId: string,
     userId: string,
-    role: string
+    role: string,
+    roles?: string[]
   ): Promise<{ chapterItemIds: string[] }> {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
@@ -219,7 +236,7 @@ export class EnrollmentsService {
     if (!enrollment) {
       throw new NotFoundException('Inscription introuvable');
     }
-    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+    if (enrollment.userId !== userId && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     const rows = await this.prisma.enrollmentProgress.findMany({
@@ -227,6 +244,26 @@ export class EnrollmentsService {
       select: { chapterItemId: true },
     });
     return { chapterItemIds: rows.map((r) => r.chapterItemId) };
+  }
+
+  /**
+   * Enregistre un ping d'activité (heartbeat toutes les 2 min depuis le frontend).
+   * Rate-limited : un seul ping par utilisateur par minute est conservé.
+   */
+  async enregistrerPing(
+    userId: string,
+    moduleId?: string,
+    enrollmentId?: string
+  ): Promise<{ ok: boolean }> {
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    const recent = await this.prisma.userActivityPing.count({
+      where: { userId, createdAt: { gte: oneMinuteAgo } },
+    });
+    if (recent > 0) return { ok: true };
+    await this.prisma.userActivityPing.create({
+      data: { userId, moduleId: moduleId ?? null, enrollmentId: enrollmentId ?? null },
+    });
+    return { ok: true };
   }
 
   /**
@@ -242,7 +279,12 @@ export class EnrollmentsService {
   /**
    * Récupère une inscription par ID.
    */
-  async trouverUn(enrollmentId: string, userId: string, role: string): Promise<unknown> {
+  async trouverUn(
+    enrollmentId: string,
+    userId: string,
+    role: string,
+    roles?: string[]
+  ): Promise<unknown> {
     const enrollment = await this.prisma.enrollment.findUnique({
       where: { id: enrollmentId },
       include: { module: true },
@@ -250,7 +292,7 @@ export class EnrollmentsService {
     if (!enrollment) {
       throw new NotFoundException('Inscription introuvable');
     }
-    if (enrollment.userId !== userId && role !== 'admin' && role !== 'platform_manager') {
+    if (enrollment.userId !== userId && !isAdminLike(role, roles)) {
       throw new ForbiddenException('Accès refusé');
     }
     return {

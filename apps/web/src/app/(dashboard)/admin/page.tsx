@@ -1,10 +1,5 @@
-/**
- * Dashboard administrateur — Vue globale : indicateurs issus de l’API (utilisateurs, modules, complétions).
- * Données réelles depuis Supabase, pas de simulation.
- */
-
-import AdminDashboardClient from './AdminDashboardClient';
+import { redirect } from 'next/navigation';
 
 export default function AdminDashboardPage() {
-  return <AdminDashboardClient />;
+  redirect('/admin/analytics/learners');
 }

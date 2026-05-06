@@ -1,17 +1,30 @@
 /**
- * Types frontend pour FACAM ACADEMIA (mock / alignés avec le futur backend).
+ * Types frontend pour FACAM ACADEMIA.
  * Utilisés pour les écrans catalogue, modules, quiz, dashboards.
  */
 
 import type { UserRole } from '@facam-academia/shared';
 
-export type { UserRole };
+export type { UserRole } from '@facam-academia/shared';
+export type { InterfaceType } from '@facam-academia/shared';
+export {
+  getRoleHome,
+  getInterfaceForRole,
+  getDistinctInterfaces,
+  ROLE_LABELS,
+  MODULE_MANAGER_ROLE_VALUES,
+  LEARNER_ROLE_VALUES,
+} from '@facam-academia/shared';
 
 export interface User {
   id: string;
   email: string;
   fullName: string;
   role: UserRole;
+  roles: UserRole[];
+  employeeId?: string | null;
+  phoneNumber1?: string | null;
+  phoneNumber2?: string | null;
   avatarUrl?: string;
   createdAt: string;
 }
@@ -20,44 +33,28 @@ export interface Module {
   id: string;
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string | null;
   durationHours: number;
   chaptersCount: number;
   progress?: number;
   completedAt?: string;
-  /** Sous-titre / accroche (page détail type Udemy) */
   subtitle?: string;
-  /** Note moyenne (ex: 4.8) */
   rating?: number;
-  /** Nombre d'évaluations / participants */
   reviewCount?: number;
-  /** Créateur / formateur */
   instructor?: string;
-  /** Dernière mise à jour */
   lastUpdated?: string;
-  /** Langue du cours */
   language?: string;
-  /** Compétences apprises ("Ce que vous apprendrez") */
   learningOutcomes?: string[];
-  /** Prérequis recommandés (liste à puces) */
   prerequisites?: string[];
-  /** Sections du contenu (accordéon) */
   sections?: CourseSection[];
-  /** Niveau : debutant | intermediaire | avance */
   level?: 'debutant' | 'intermediaire' | 'avance';
-  /** Formateur : photo (URL) */
   instructorAvatarUrl?: string;
-  /** Formateur : courte bio ou titre */
   instructorBio?: string;
-  /** Nombre de quiz dans le module */
   quizCount?: number;
-  /** Ressources téléchargeables (nombre ou liste courte) */
   downloadableResourcesCount?: number;
-  /** Indication certificat à la clé */
   hasCertificate?: boolean;
 }
 
-/** Section du contenu du cours (accordéon page détail) */
 export interface CourseSection {
   id: string;
   title: string;

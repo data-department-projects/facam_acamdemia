@@ -6,10 +6,12 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Crown,
@@ -26,6 +28,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import Select1 from '@/components/ui/select-1';
 import { api } from '@/lib/api-client';
 
 type ModuleItem = { id: string; title: string };
@@ -61,6 +64,30 @@ type LearnersResponse = {
   limit: number;
   totalPages: number;
 };
+
+const RANGE_OPTIONS: ReadonlyArray<{ label: string; value: '7d' | '30d' | '90d' }> = [
+  { label: '7 jours', value: '7d' },
+  { label: '30 jours', value: '30d' },
+  { label: '90 jours', value: '90d' },
+];
+
+const ROLE_OPTIONS: ReadonlyArray<{ label: string; value: 'all' | 'student' | 'employee' }> = [
+  { label: 'Tous', value: 'all' },
+  { label: 'Étudiants', value: 'student' },
+  { label: 'Employés', value: 'employee' },
+];
+
+const SORT_OPTIONS: ReadonlyArray<{
+  label: string;
+  value: 'performance' | 'engagement' | 'minutes' | 'quizzes' | 'progress' | 'name';
+}> = [
+  { label: 'Tri: performance', value: 'performance' },
+  { label: 'Tri: engagement', value: 'engagement' },
+  { label: 'Tri: minutes', value: 'minutes' },
+  { label: 'Tri: quiz', value: 'quizzes' },
+  { label: 'Tri: progression', value: 'progress' },
+  { label: 'Tri: nom', value: 'name' },
+];
 
 function roleLabel(role: string): string {
   if (role === 'student') return 'Étudiant';
@@ -169,7 +196,7 @@ function LearnerExplorerTableRow({
       <td className="py-3 pr-4">
         <div className="space-y-2">
           <div className="text-xs font-bold text-emerald-700 inline-flex items-center gap-2">
-            <Timer className="size-4" /> {r.minutesLearned} min
+            <Timer className="size-4" /> {r.minutesLearned} min de présence
           </div>
           <div className="h-2 w-40 rounded-full bg-gray-100">
             <div
@@ -294,6 +321,13 @@ export default function AdminLearnersExplorerPage() {
 
   const rows = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
+  const moduleOptions = useMemo(
+    () => [
+      { label: 'Tous les modules', value: '' },
+      ...modules.map((m) => ({ label: m.title, value: m.id })),
+    ],
+    [modules]
+  );
 
   const handleToggleReference = useCallback((row: LearnerRow) => {
     setCompareAnchor((prev) => nextCompareAnchor(prev, row));
@@ -301,97 +335,96 @@ export default function AdminLearnersExplorerPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-facam-dark via-[#0b2a8f] to-[#5b21b6] p-6 text-white shadow-sm overflow-hidden">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide">
+      <div className="relative overflow-hidden rounded-2xl min-h-[260px] md:min-h-[310px]">
+        <Image
+          src="/hero.jpg"
+          alt="Learners Explorer"
+          fill
+          priority
+          className="object-cover object-[center_-50px] md:object-[center_-140px]"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-facam-blue/90 via-facam-blue/70 to-facam-blue/40" />
+        <div className="relative z-10 flex min-h-[260px] flex-col gap-6 p-5 md:min-h-[310px] md:p-6">
+          <div className="flex flex-col gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-transparent px-3 py-1 text-xs font-semibold tracking-wide text-white">
               <Sparkles className="size-4" />
               Learners Explorer
             </div>
-            <h1 className="mt-2 text-2xl md:text-3xl font-extrabold">Performance & engagement</h1>
-            <p className="text-sm text-white/75 max-w-2xl">
+            <h1 className="text-xl md:text-2xl font-extrabold text-white">
+              Performance & engagement
+            </h1>
+            <p className="max-w-2xl text-xs text-white/80 md:text-sm">
               Recherchez, triez et identifiez instantanément les profils les plus performants et les
               plus investis.
             </p>
           </div>
-
-          <div className="w-full md:w-auto rounded-2xl bg-white/10 p-4 backdrop-blur">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
-                <Filter className="size-4" />
-                Filtres
+          <div className="mt-auto rounded-2xl bg-black/15 p-3 backdrop-blur-sm md:p-4">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-2 text-xs font-semibold text-white/90 backdrop-blur-sm">
+                <Filter className="size-3.5" />
+                <span>Filtres</span>
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
-                <select
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 backdrop-blur-sm min-w-[165px]">
+                <CalendarDays className="size-3.5 text-white/80" />
+                <Select1
                   value={range}
-                  onChange={(e) => {
-                    setRange(e.target.value as typeof range);
+                  onValueChange={(value) => {
+                    setRange(value as typeof range);
                     setPage(1);
                   }}
-                  className="bg-transparent text-sm font-semibold text-white outline-none"
-                >
-                  <option value="7d">7 jours</option>
-                  <option value="30d">30 jours</option>
-                  <option value="90d">90 jours</option>
-                </select>
+                  options={RANGE_OPTIONS}
+                  triggerClassName="h-8 w-full border-0 bg-transparent px-1 text-sm text-white hover:bg-white/10"
+                  popupClassName="border-gray-200 bg-white text-gray-800"
+                />
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
-                <select
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 backdrop-blur-sm min-w-[220px]">
+                <Users className="size-3.5 text-white/80" />
+                <Select1
                   value={role}
-                  onChange={(e) => {
-                    setRole(e.target.value as typeof role);
+                  onValueChange={(value) => {
+                    setRole(value as typeof role);
                     setPage(1);
                   }}
-                  className="bg-transparent text-sm font-semibold text-white outline-none"
-                >
-                  <option value="all">Étudiants + Employés</option>
-                  <option value="student">Étudiants</option>
-                  <option value="employee">Employés</option>
-                </select>
+                  options={ROLE_OPTIONS}
+                  triggerClassName="h-8 w-full border-0 bg-transparent px-1 text-sm text-white hover:bg-white/10"
+                  popupClassName="border-gray-200 bg-white text-gray-800"
+                />
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 max-w-[260px]">
-                <select
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 backdrop-blur-sm min-w-[250px] flex-1">
+                <Target className="size-3.5 text-white/80" />
+                <Select1
                   value={moduleId}
-                  onChange={(e) => {
-                    setModuleId(e.target.value);
+                  onValueChange={(value) => {
+                    setModuleId(value);
                     setPage(1);
                   }}
-                  className="bg-transparent text-sm font-semibold text-white outline-none w-full"
-                >
-                  <option value="">Tous les modules</option>
-                  {modules.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title}
-                    </option>
-                  ))}
-                </select>
+                  options={moduleOptions}
+                  triggerClassName="h-8 w-full border-0 bg-transparent px-1 text-sm text-white hover:bg-white/10"
+                  popupClassName="border-gray-200 bg-white text-gray-800"
+                />
               </div>
-              <div className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
-                <select
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/15 px-2.5 py-1.5 backdrop-blur-sm min-w-[220px]">
+                <TrendingUp className="size-3.5 text-white/80" />
+                <Select1
                   value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value as typeof sort);
+                  onValueChange={(value) => {
+                    setSort(value as typeof sort);
                     setPage(1);
                   }}
-                  className="bg-transparent text-sm font-semibold text-white outline-none"
-                >
-                  <option value="performance">Tri: performance</option>
-                  <option value="engagement">Tri: engagement</option>
-                  <option value="minutes">Tri: minutes</option>
-                  <option value="quizzes">Tri: quiz</option>
-                  <option value="progress">Tri: progression</option>
-                  <option value="name">Tri: nom</option>
-                </select>
+                  options={SORT_OPTIONS}
+                  triggerClassName="h-8 w-full border-0 bg-transparent px-1 text-sm text-white hover:bg-white/10"
+                  popupClassName="border-gray-200 bg-white text-gray-800"
+                />
               </div>
               <Button
-                variant="outline"
-                className="border-white/30 text-white hover:bg-white/10"
+                size="sm"
+                className="h-8 bg-white px-4 font-semibold text-facam-blue hover:bg-white/90"
                 onClick={() => void load()}
               >
                 Actualiser
               </Button>
             </div>
-            <p className="mt-2 text-[11px] text-white/60">
+            <p className="mt-2 text-[10px] text-white/70 md:text-xs">
               Période: {new Date(fromTo.from).toLocaleDateString('fr-FR')} →{' '}
               {new Date(fromTo.to).toLocaleDateString('fr-FR')}
             </p>
@@ -462,7 +495,7 @@ export default function AdminLearnersExplorerPage() {
                       <th className="py-3 pr-4 font-semibold">Profil</th>
                       <th className="py-3 pr-4 font-semibold">Rôle</th>
                       <th className="py-3 pr-4 font-semibold">Performance</th>
-                      <th className="py-3 pr-4 font-semibold">Engagement</th>
+                      <th className="py-3 pr-4 font-semibold">Présence & Engagement</th>
                       <th className="py-3 pr-4 font-semibold">Progression</th>
                       <th className="py-3 pr-0 font-semibold text-right min-w-[200px]">Actions</th>
                     </tr>

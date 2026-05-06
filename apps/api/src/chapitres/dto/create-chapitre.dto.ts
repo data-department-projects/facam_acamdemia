@@ -1,6 +1,6 @@
 /**
  * DTO de création d'un chapitre.
- * Spec : titre, description, vidéo YouTube (titre + lien), quiz (questions + score min).
+ * Spec : titre, description, vidéo YouTube (lien), quiz (questions + score min).
  * Soit moduleId (legacy), soit courseId pour rattacher au cours.
  */
 
@@ -59,11 +59,6 @@ export class CreateChapitreDto {
   @IsInt()
   @Min(1)
   order: number;
-
-  /** Titre de la vidéo YouTube (pour affichage). */
-  @IsOptional()
-  @IsString()
-  videoTitle?: string;
 
   /** Lien de la vidéo YouTube. */
   @IsOptional()

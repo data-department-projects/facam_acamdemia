@@ -44,10 +44,6 @@ export class UpdateFormationDto {
   level?: (typeof NIVEAUX)[number];
 
   @IsOptional()
-  @IsUrl()
-  sharePointFolderUrl?: string;
-
-  @IsOptional()
   @IsString()
   @MaxLength(120)
   authorName?: string;

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, randomInt } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,7 @@ export interface FichierAvatarUpload {
 
 const OTP_EXPIRATION_MINUTES = 3;
 const SALT_ROUNDS = 10;
+const SESSION_TOKEN_MINUTES = 15;
 
 export interface ReponseConnexion {
   accessToken: string;
@@ -38,6 +39,10 @@ export interface ReponseConnexion {
     email: string;
     fullName: string;
     role: string;
+    roles: string[];
+    employeeId: string | null;
+    phoneNumber1: string | null;
+    phoneNumber2: string | null;
     firstLoginAt: string | null;
     avatarUrl: string | null;
   };
@@ -68,7 +73,9 @@ export class AuthService {
     if (!motDePasseValide) {
       throw new UnauthorizedException('Identifiants incorrects');
     }
-    const estPremiereConnexion = user.role === 'student' && user.firstLoginAt === null;
+    const effectiveRoles = user.roles.length > 0 ? user.roles : [user.role];
+    const estApprenant = effectiveRoles.includes('student') || effectiveRoles.includes('employee');
+    const estPremiereConnexion = estApprenant && user.firstLoginAt === null;
     if (estPremiereConnexion) {
       await this.prisma.user.update({
         where: { id: user.id },
@@ -82,6 +89,10 @@ export class AuthService {
         email: true,
         fullName: true,
         role: true,
+        roles: true,
+        employeeId: true,
+        phoneNumber1: true,
+        phoneNumber2: true,
         firstLoginAt: true,
         avatarUrl: true,
       },
@@ -89,13 +100,17 @@ export class AuthService {
     if (!utilisateurAvecDate) {
       throw new UnauthorizedException('Erreur lors de la récupération du profil');
     }
+    const userRoles =
+      utilisateurAvecDate.roles.length > 0 ? utilisateurAvecDate.roles : [utilisateurAvecDate.role];
     const payload: UtilisateurPayload = {
       sub: utilisateurAvecDate.id,
       email: utilisateurAvecDate.email,
       role: utilisateurAvecDate.role,
+      roles: userRoles,
       fullName: utilisateurAvecDate.fullName,
     };
     const accessToken = this.jwtService.sign(payload, { expiresIn: this.accessExpiresIn() });
+    await this.logSessionTokenGrant(utilisateurAvecDate.id, 'login');
     return {
       accessToken,
       user: {
@@ -103,6 +118,10 @@ export class AuthService {
         email: utilisateurAvecDate.email,
         fullName: utilisateurAvecDate.fullName,
         role: utilisateurAvecDate.role,
+        roles: userRoles,
+        employeeId: utilisateurAvecDate.employeeId ?? null,
+        phoneNumber1: utilisateurAvecDate.phoneNumber1 ?? null,
+        phoneNumber2: utilisateurAvecDate.phoneNumber2 ?? null,
         firstLoginAt: utilisateurAvecDate.firstLoginAt?.toISOString() ?? null,
         avatarUrl: utilisateurAvecDate.avatarUrl ?? null,
       },
@@ -117,6 +136,10 @@ export class AuthService {
     email: string;
     fullName: string;
     role: string;
+    roles: string[];
+    employeeId: string | null;
+    phoneNumber1: string | null;
+    phoneNumber2: string | null;
     firstLoginAt: string | null;
     avatarUrl: string | null;
   }> {
@@ -127,6 +150,10 @@ export class AuthService {
         email: true,
         fullName: true,
         role: true,
+        roles: true,
+        employeeId: true,
+        phoneNumber1: true,
+        phoneNumber2: true,
         firstLoginAt: true,
         avatarUrl: true,
       },
@@ -134,11 +161,16 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Utilisateur introuvable');
     }
+    const effectiveRoles = user.roles.length > 0 ? user.roles : [user.role];
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      roles: effectiveRoles,
+      employeeId: user.employeeId ?? null,
+      phoneNumber1: user.phoneNumber1 ?? null,
+      phoneNumber2: user.phoneNumber2 ?? null,
       firstLoginAt: user.firstLoginAt?.toISOString() ?? null,
       avatarUrl: user.avatarUrl ?? null,
     };
@@ -199,7 +231,7 @@ export class AuthService {
     if (!user) {
       return { message: 'Si ce compte existe, un email avec le code vous a été envoyé.' };
     }
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 1000000));
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + OTP_EXPIRATION_MINUTES);
     await this.prisma.passwordResetOtp.deleteMany({ where: { email: emailNorm } });
@@ -367,7 +399,7 @@ export class AuthService {
     const row = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
       include: {
-        user: { select: { id: true, email: true, role: true, fullName: true } },
+        user: { select: { id: true, email: true, role: true, roles: true, fullName: true } },
       },
     });
     if (!row || row.revokedAt || row.expiresAt <= new Date()) {
@@ -395,13 +427,16 @@ export class AuthService {
 
     this.setRefreshCookie(res, newRaw, days);
 
+    const refreshRoles = row.user.roles.length > 0 ? row.user.roles : [row.user.role];
     const payload: UtilisateurPayload = {
       sub: row.user.id,
       email: row.user.email,
       role: row.user.role,
+      roles: refreshRoles,
       fullName: row.user.fullName,
     };
     const accessToken = this.jwtService.sign(payload, { expiresIn: this.accessExpiresIn() });
+    await this.logSessionTokenGrant(row.user.id, 'refresh');
     return { accessToken };
   }
 
@@ -415,5 +450,23 @@ export class AuthService {
       await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
     }
     this.clearRefreshCookie(res);
+  }
+
+  /**
+   * Journalise l'attribution d'un token d'accès (login initial ou refresh).
+   * Cette trace sert au calcul des minutes de présence (1 token = 15 minutes).
+   */
+  private async logSessionTokenGrant(
+    userId: string,
+    grantType: 'login' | 'refresh'
+  ): Promise<void> {
+    try {
+      await this.prisma.$executeRaw`
+        INSERT INTO "SessionTokenGrant" ("id", "userId", "grantType", "minutesPerToken", "createdAt")
+        VALUES (${randomUUID()}, ${userId}, ${grantType}, ${SESSION_TOKEN_MINUTES}, ${new Date()})
+      `;
+    } catch {
+      return;
+    }
   }
 }

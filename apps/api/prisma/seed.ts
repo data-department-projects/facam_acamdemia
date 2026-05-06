@@ -1,20 +1,23 @@
 /**
- * Seed Prisma — Crée uniquement le compte administrateur initial pour FACAM ACADEMIA.
- * Les comptes responsables et étudiants seront créés depuis l’interface admin.
+ * Seed Prisma — Crée le compte administrateur initial pour FACAM ACADEMIA.
+ * Les comptes responsables et étudiants seront créés depuis l'interface admin.
+ * Compatible multi-rôles : le champ `roles` est renseigné en parallèle de `role`.
  * Commande : npx prisma db seed (depuis apps/api ou racine du monorepo).
  */
 
-import { PrismaClient } from '@prisma/client';
+import 'dotenv/config';
+import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+const prisma = new PrismaClient({ adapter });
 const SALT_ROUNDS = 10;
 
 const ADMIN_EMAIL = 'admin@facam.com';
-const ADMIN_PASSWORD = 'Admin123!'; // Mot de passe de connexion pour l’admin initial
+const ADMIN_PASSWORD = 'Admin123!';
 
 async function main() {
-  // Suppression des comptes démo (étudiant et responsable) pour ne garder que l’admin
   const demoEmails = ['etudiant@facam.com', 'responsable@facam.com'];
   for (const email of demoEmails) {
     const deleted = await prisma.user.deleteMany({ where: { email } });
@@ -22,8 +25,6 @@ async function main() {
       console.log('Compte démo supprimé :', email);
     }
   }
-
-  // Création ou mise à jour du compte administrateur (mot de passe toujours synchronisé avec ADMIN_PASSWORD)
   const hash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
   await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
@@ -32,14 +33,15 @@ async function main() {
       passwordHash: hash,
       fullName: 'Administrateur FACAM',
       role: 'admin',
+      roles: ['admin'],
     },
     update: {
       passwordHash: hash,
       fullName: 'Administrateur FACAM',
+      roles: ['admin'],
     },
   });
   console.log('Admin prêt :', ADMIN_EMAIL, '| Mot de passe :', ADMIN_PASSWORD);
-
   console.log('Seed terminé.');
 }
 

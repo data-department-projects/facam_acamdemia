@@ -8,6 +8,7 @@ import { CreateEnrollmentDto } from './dto/create-enrollment.dto';
 import { StartModuleDto } from './dto/start-module.dto';
 import { UpdateProgressionDto } from './dto/update-progression.dto';
 import { CompleteItemDto } from './dto/complete-item.dto';
+import { PingActivityDto } from './dto/ping-activity.dto';
 import { JwtAuthGuard } from '../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../core/guards/roles.guard';
 import { Roles } from '../core/decorators/roles.decorator';
@@ -32,7 +33,7 @@ export class EnrollmentsController {
     @CurrentUser() user: UtilisateurPayload,
     @Query('userId') userId?: string
   ) {
-    return this.enrollmentsService.trouverPourUtilisateur(user.sub, user.role, userId);
+    return this.enrollmentsService.trouverPourUtilisateur(user.sub, user.role, userId, user.roles);
   }
 
   @Get('stats')
@@ -47,6 +48,14 @@ export class EnrollmentsController {
     return { status: 'enrollments ok' };
   }
 
+  /** Heartbeat de présence : le frontend l'appelle toutes les 2 min pour mesurer le temps réel. */
+  @Post('ping')
+  @UseGuards(RolesGuard)
+  @Roles(ROLES.STUDENT, ROLES.EMPLOYEE)
+  enregistrerPing(@Body() dto: PingActivityDto, @CurrentUser() user: UtilisateurPayload) {
+    return this.enrollmentsService.enregistrerPing(user.sub, dto.moduleId, dto.enrollmentId);
+  }
+
   /** Inscription à un module par l'étudiant/employé (démarrage). Crée l'enrollment si besoin. */
   @Post('start')
   @UseGuards(RolesGuard)
@@ -57,7 +66,7 @@ export class EnrollmentsController {
 
   @Get(':id')
   trouverUn(@Param('id') id: string, @CurrentUser() user: UtilisateurPayload) {
-    return this.enrollmentsService.trouverUn(id, user.sub, user.role);
+    return this.enrollmentsService.trouverUn(id, user.sub, user.role, user.roles);
   }
 
   @Post(':id/complete-item')
@@ -70,7 +79,8 @@ export class EnrollmentsController {
       id,
       dto.chapterItemId,
       user.sub,
-      user.role
+      user.role,
+      user.roles
     );
   }
 
@@ -80,11 +90,11 @@ export class EnrollmentsController {
     @Body() dto: UpdateProgressionDto,
     @CurrentUser() user: UtilisateurPayload
   ) {
-    return this.enrollmentsService.mettreAJourProgression(id, dto, user.sub, user.role);
+    return this.enrollmentsService.mettreAJourProgression(id, dto, user.sub, user.role, user.roles);
   }
 
   @Get(':id/progress-items')
   listerProgressItems(@Param('id') id: string, @CurrentUser() user: UtilisateurPayload) {
-    return this.enrollmentsService.listerElementsCompletes(id, user.sub, user.role);
+    return this.enrollmentsService.listerElementsCompletes(id, user.sub, user.role, user.roles);
   }
 }

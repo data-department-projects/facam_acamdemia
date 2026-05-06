@@ -1,15 +1,12 @@
 /**
  * AnalyticsService — agrégations "business" pour piloter la plateforme.
- *
- * Notes:
- * - Le "temps d'apprentissage" est estimé à partir des ressources complétées:
- *   somme des `durationMinutes` des items vidéo/quiz complétés (EnrollmentProgress).
- *   C'est un proxy robuste sans tracking temps réel (pas de heartbeat).
+ * Le temps de présence est mesuré par les pings heartbeat (1 ping = 2 min d'activité réelle).
  */
 
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+const PING_INTERVAL_MINUTES = 2;
 
 type OverviewParams = {
   requesterId: string;
@@ -67,6 +64,20 @@ function clampSort(
   if (s === 'engagement' || s === 'minutes' || s === 'quizzes' || s === 'progress' || s === 'name')
     return s;
   return 'performance';
+}
+
+type ModulesStatsParams = {
+  from?: string;
+  to?: string;
+  moduleType?: string;
+  moduleId?: string;
+};
+
+function clampModuleType(moduleType?: string): 'interne' | 'externe' | 'all' {
+  if (!moduleType) return 'all';
+  const t = moduleType.toLowerCase();
+  if (t === 'interne' || t === 'externe') return t;
+  return 'all';
 }
 
 @Injectable()
@@ -194,25 +205,19 @@ export class AnalyticsService {
         avgScore: d.attempts > 0 ? Math.round(d.scoreSum / d.attempts) : 0,
       }));
 
-    // Minutes apprises: proxy basé sur items complétés (EnrollmentProgress) pendant période
-    const progressRows = await this.prisma.enrollmentProgress.findMany({
+    // Minutes de présence réelle : comptage des pings (1 ping = PING_INTERVAL_MINUTES minutes)
+    const pingRows = await this.prisma.userActivityPing.groupBy({
+      by: ['userId'],
       where: {
-        completedAt: { gte: from, lte: to },
-        enrollment: enrollmentWhere,
+        createdAt: { gte: from, lte: to },
+        user: userWhere,
+        ...(moduleId ? { moduleId } : {}),
       },
-      select: {
-        enrollment: { select: { userId: true } },
-        chapterItem: { select: { durationMinutes: true, type: true } },
-      },
+      _count: { _all: true },
     });
     const minutesByUser = new Map<string, number>();
-    for (const row of progressRows) {
-      const userId = row.enrollment.userId;
-      const minutes = row.chapterItem.durationMinutes ?? 0;
-      // On compte surtout les vidéos et quiz; les documents n'ont pas de durée.
-      const type = row.chapterItem.type;
-      if (type !== 'video' && type !== 'quiz') continue;
-      minutesByUser.set(userId, (minutesByUser.get(userId) ?? 0) + minutes);
+    for (const row of pingRows) {
+      minutesByUser.set(row.userId, row._count._all * PING_INTERVAL_MINUTES);
     }
 
     // "Meilleur score sur les 3 quiz principaux" = top 3 quizzes les plus tentés sur la période (global filtres)
@@ -426,25 +431,19 @@ export class AnalyticsService {
       }
     }
 
-    // Minutes apprises (proxy) sur période
-    const progressRows = await this.prisma.enrollmentProgress.findMany({
+    // Minutes de présence réelle : comptage des pings (1 ping = PING_INTERVAL_MINUTES minutes)
+    const pingRows = await this.prisma.userActivityPing.groupBy({
+      by: ['userId'],
       where: {
-        completedAt: { gte: from, lte: to },
-        enrollment: enrollmentWhere,
+        createdAt: { gte: from, lte: to },
+        userId: { in: userIds },
+        ...(moduleId ? { moduleId } : {}),
       },
-      select: {
-        enrollment: { select: { userId: true } },
-        chapterItem: { select: { type: true, durationMinutes: true } },
-      },
+      _count: { _all: true },
     });
     const minutesByUser = new Map<string, number>();
-    for (const row of progressRows) {
-      const type = row.chapterItem.type;
-      if (type !== 'video' && type !== 'quiz') continue;
-      minutesByUser.set(
-        row.enrollment.userId,
-        (minutesByUser.get(row.enrollment.userId) ?? 0) + (row.chapterItem.durationMinutes ?? 0)
-      );
+    for (const row of pingRows) {
+      minutesByUser.set(row.userId, row._count._all * PING_INTERVAL_MINUTES);
     }
 
     const rows = users.map((u) => {
@@ -544,6 +543,7 @@ export class AnalyticsService {
                 title: true,
                 isFinal: true,
                 moduleId: true,
+                module: { select: { title: true } },
                 chapter: { select: { title: true, order: true } },
               },
             },
@@ -566,11 +566,15 @@ export class AnalyticsService {
       {
         quizId: string;
         title: string;
+        chapterTitle: string | null;
+        moduleId: string;
+        moduleTitle: string;
         isFinal: boolean;
         attempts: number;
         passed: number;
         best: number;
         avgSum: number;
+        scores: number[];
       }
     >();
     for (const a of attempts) {
@@ -578,16 +582,21 @@ export class AnalyticsService {
       const existing = perQuizMap.get(q.id) ?? {
         quizId: q.id,
         title: q.title,
+        chapterTitle: q.chapter?.title ?? null,
+        moduleId: q.moduleId,
+        moduleTitle: q.module.title,
         isFinal: q.isFinal,
         attempts: 0,
         passed: 0,
         best: 0,
         avgSum: 0,
+        scores: [],
       };
       existing.attempts += 1;
       existing.passed += a.passed ? 1 : 0;
       const score = a.scorePercent ?? 0;
       existing.avgSum += score;
+      existing.scores.push(score);
       if (score > existing.best) existing.best = score;
       perQuizMap.set(q.id, existing);
     }
@@ -595,11 +604,15 @@ export class AnalyticsService {
       .map((q) => ({
         quizId: q.quizId,
         title: q.title,
+        chapterTitle: q.chapterTitle,
+        moduleId: q.moduleId,
+        moduleTitle: q.moduleTitle,
         isFinal: q.isFinal,
         attempts: q.attempts,
         passRate: q.attempts > 0 ? Math.round((q.passed / q.attempts) * 100) : 0,
         avgScore: q.attempts > 0 ? Math.round(q.avgSum / q.attempts) : 0,
         bestScore: q.best,
+        scores: q.scores,
       }))
       .sort((a, b) => (a.isFinal === b.isFinal ? b.attempts - a.attempts : a.isFinal ? -1 : 1));
 
@@ -621,23 +634,20 @@ export class AnalyticsService {
         avgScore: d.attempts > 0 ? Math.round(d.scoreSum / d.attempts) : 0,
       }));
 
-    // Minutes learned by day (EnrollmentProgress)
-    const progressRows = enrollmentIds.length
-      ? await this.prisma.enrollmentProgress.findMany({
-          where: { enrollmentId: { in: enrollmentIds }, completedAt: { gte: from, lte: to } },
-          select: {
-            completedAt: true,
-            chapterItem: { select: { type: true, durationMinutes: true } },
-          },
-        })
-      : [];
+    // Présence réelle par jour (pings heartbeat, 1 ping = PING_INTERVAL_MINUTES minutes)
+    const pings = await this.prisma.userActivityPing.findMany({
+      where: {
+        userId,
+        createdAt: { gte: from, lte: to },
+        ...(moduleId ? { moduleId } : {}),
+      },
+      select: { createdAt: true },
+    });
     const minutesByDay = new Map<string, number>();
-    for (const row of progressRows) {
-      const type = row.chapterItem.type;
-      if (type !== 'video' && type !== 'quiz') continue;
-      const d = row.completedAt;
+    for (const ping of pings) {
+      const d = ping.createdAt;
       const key = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().slice(0, 10);
-      minutesByDay.set(key, (minutesByDay.get(key) ?? 0) + (row.chapterItem.durationMinutes ?? 0));
+      minutesByDay.set(key, (minutesByDay.get(key) ?? 0) + PING_INTERVAL_MINUTES);
     }
     const minutesTimeline = Array.from(minutesByDay.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
@@ -671,7 +681,7 @@ export class AnalyticsService {
       moduleId: e.module.id,
       moduleTitle: e.module.title,
       moduleType: e.module.moduleType,
-      progressPercent: e.progressPercent,
+      progressPercent: e.completedAt != null ? 100 : e.progressPercent,
       completedAt: e.completedAt?.toISOString() ?? null,
       enrolledAt: e.enrolledAt.toISOString(),
       lastViewedChapterId: e.lastViewedChapterId,
@@ -705,6 +715,314 @@ export class AnalyticsService {
       minutesTimeline,
       perQuiz,
       modulesInScope: Array.from(new Set(moduleIds)),
+    };
+  }
+
+  /**
+   * Statistiques des modules (admin) — KPIs, graphiques, tableaux drill-down.
+   * Filtres: période, type de module (interne/externe), moduleId spécifique.
+   */
+  async adminModulesStats(params: ModulesStatsParams) {
+    const { from, to } = this.computeRange(params.from, params.to);
+    const moduleType = clampModuleType(params.moduleType);
+    const moduleId = params.moduleId?.trim() ? params.moduleId.trim() : null;
+
+    // Filtrer les modules par type
+    const moduleWhere: Prisma.ModuleWhereInput = {
+      ...(moduleType !== 'all' ? { moduleType } : {}),
+      ...(moduleId ? { id: moduleId } : {}),
+    };
+
+    const allModules = await this.prisma.module.findMany({
+      where: moduleWhere,
+      select: { id: true, title: true, moduleType: true },
+    });
+    const moduleIds = allModules.map((m) => m.id);
+
+    // KPIs de base
+    const totalModules = allModules.length;
+
+    // Étudiants et employés selon le type de module
+    const studentRole = moduleType === 'interne' ? [] : ['student'];
+    const employeeRole = moduleType === 'externe' ? [] : ['employee'];
+    const roles = [...studentRole, ...employeeRole];
+    if (roles.length === 0) roles.push('student', 'employee');
+
+    const [totalStudents, totalEmployees] = await Promise.all([
+      this.prisma.user.count({ where: { role: 'student' } }),
+      this.prisma.user.count({ where: { role: 'employee' } }),
+    ]);
+
+    // Enrollments filtrés
+    const enrollmentWhere: Prisma.EnrollmentWhereInput = {
+      moduleId: { in: moduleIds },
+    };
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: enrollmentWhere,
+      include: {
+        user: { select: { id: true, fullName: true, email: true, role: true, avatarUrl: true } },
+        module: { select: { id: true, title: true } },
+      },
+    });
+
+    const totalCertified = enrollments.filter((e) => e.completedAt != null).length;
+    const completionRate =
+      enrollments.length > 0 ? Math.round((totalCertified / enrollments.length) * 100) : 0;
+
+    // Quiz attempts sur la période
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: {
+        submittedAt: { gte: from, lte: to },
+        quiz: { moduleId: { in: moduleIds } },
+        scorePercent: { not: null },
+      },
+      select: {
+        id: true,
+        userId: true,
+        quizId: true,
+        scorePercent: true,
+        passed: true,
+        submittedAt: true,
+        quiz: { select: { moduleId: true, isFinal: true, chapterId: true } },
+      },
+    });
+
+    const quizzesTakenCount = attempts.length;
+    const avgQuizScore =
+      quizzesTakenCount > 0
+        ? Math.round(
+            attempts.reduce((acc, a) => acc + (a.scorePercent ?? 0), 0) / quizzesTakenCount
+          )
+        : null;
+
+    // Performance par module (certifiés vs en cours)
+    const modulesPerformance = allModules.map((mod) => {
+      const modEnrollments = enrollments.filter((e) => e.moduleId === mod.id);
+      const certified = modEnrollments.filter((e) => e.completedAt != null).length;
+      const inProgress = modEnrollments.length - certified;
+      const studentCertified = modEnrollments.filter(
+        (e) => e.user.role === 'student' && e.completedAt != null
+      ).length;
+      const studentInProgress = modEnrollments.filter(
+        (e) => e.user.role === 'student' && e.completedAt == null
+      ).length;
+      const employeeCertified = modEnrollments.filter(
+        (e) => e.user.role === 'employee' && e.completedAt != null
+      ).length;
+      const employeeInProgress = modEnrollments.filter(
+        (e) => e.user.role === 'employee' && e.completedAt == null
+      ).length;
+
+      // Meilleur score quiz final pour ce module
+      const finalAttempts = attempts.filter(
+        (a) => a.quiz.moduleId === mod.id && a.quiz.isFinal === true
+      );
+      const bestFinalScore =
+        finalAttempts.length > 0 ? Math.max(...finalAttempts.map((a) => a.scorePercent ?? 0)) : 0;
+
+      return {
+        moduleId: mod.id,
+        moduleTitle: mod.title,
+        certified,
+        inProgress,
+        studentCertified,
+        studentInProgress,
+        employeeCertified,
+        employeeInProgress,
+        bestFinalScore,
+      };
+    });
+
+    // Tableau modules avec quiz par chapitre
+    const chapters = await this.prisma.chapter.findMany({
+      where: { moduleId: { in: moduleIds } },
+      select: { id: true, title: true, moduleId: true },
+    });
+
+    const quizzes = await this.prisma.quiz.findMany({
+      where: { moduleId: { in: moduleIds } },
+      select: { id: true, title: true, moduleId: true, chapterId: true, isFinal: true },
+    });
+
+    const modulesTable = allModules.map((mod) => {
+      const modQuizzes = quizzes.filter((q) => q.moduleId === mod.id);
+      const totalQuizzes = modQuizzes.length;
+
+      // Score moyen quiz final
+      const finalQuiz = modQuizzes.find((q) => q.isFinal);
+      const finalAttempts = finalQuiz ? attempts.filter((a) => a.quizId === finalQuiz.id) : [];
+      const avgFinalScore =
+        finalAttempts.length > 0
+          ? Math.round(
+              finalAttempts.reduce((acc, a) => acc + (a.scorePercent ?? 0), 0) /
+                finalAttempts.length
+            )
+          : null;
+
+      // Quiz par chapitre
+      const modChapters = chapters.filter((ch) => ch.moduleId === mod.id);
+      const chaptersQuizzes = modChapters.map((ch) => {
+        const chQuizzes = modQuizzes.filter((q) => q.chapterId === ch.id && !q.isFinal);
+        const chAttempts = attempts.filter((a) => chQuizzes.some((q) => q.id === a.quizId));
+        const avgScore =
+          chAttempts.length > 0
+            ? Math.round(
+                chAttempts.reduce((acc, a) => acc + (a.scorePercent ?? 0), 0) / chAttempts.length
+              )
+            : null;
+        return {
+          chapterId: ch.id,
+          chapterTitle: ch.title,
+          quizCount: chQuizzes.length,
+          avgScore,
+        };
+      });
+
+      return {
+        moduleId: mod.id,
+        moduleTitle: mod.title,
+        totalQuizzes,
+        avgFinalScore,
+        chaptersQuizzes,
+      };
+    });
+
+    // Liste des apprenants (étudiants et employés)
+    const baseLearners = enrollments
+      .filter((e, idx, arr) => arr.findIndex((x) => x.user.id === e.user.id) === idx)
+      .map((e) => ({
+        userId: e.user.id,
+        fullName: e.user.fullName,
+        email: e.user.email,
+        role: e.user.role,
+        avatarUrl: e.user.avatarUrl,
+      }));
+
+    // Détails des scores pour le drill-down (quiz final par module)
+    const finalScoreDetails = allModules.map((mod) => {
+      const finalQuiz = quizzes.find((q) => q.moduleId === mod.id && q.isFinal);
+      if (!finalQuiz) return { moduleId: mod.id, learners: [] };
+
+      const finalAttempts = attempts.filter((a) => a.quizId === finalQuiz.id);
+      const bestByUser = new Map<string, number>();
+      for (const a of finalAttempts) {
+        const prev = bestByUser.get(a.userId) ?? -1;
+        if ((a.scorePercent ?? 0) > prev) bestByUser.set(a.userId, a.scorePercent ?? 0);
+      }
+
+      const learners = Array.from(bestByUser.entries()).map(([userId, bestScore]) => {
+        const enrollment = enrollments.find((e) => e.user.id === userId && e.moduleId === mod.id);
+        return {
+          userId,
+          fullName: enrollment?.user.fullName ?? 'Inconnu',
+          role: enrollment?.user.role ?? 'student',
+          bestScore,
+        };
+      });
+
+      return { moduleId: mod.id, learners };
+    });
+
+    // Détails des scores pour le drill-down (quiz par chapitre)
+    const chapterQuizDetails = chapters.map((ch) => {
+      const chQuizzes = quizzes.filter((q) => q.chapterId === ch.id && !q.isFinal);
+      const chAttempts = attempts.filter((a) => chQuizzes.some((q) => q.id === a.quizId));
+
+      const bestByUser = new Map<string, number>();
+      for (const a of chAttempts) {
+        const prev = bestByUser.get(a.userId) ?? -1;
+        if ((a.scorePercent ?? 0) > prev) bestByUser.set(a.userId, a.scorePercent ?? 0);
+      }
+
+      const learners = Array.from(bestByUser.entries()).map(([userId, bestScore]) => {
+        const enrollment = enrollments.find((e) => e.user.id === userId);
+        return {
+          userId,
+          fullName: enrollment?.user.fullName ?? 'Inconnu',
+          role: enrollment?.user.role ?? 'student',
+          bestScore,
+        };
+      });
+
+      return { chapterId: ch.id, learners };
+    });
+
+    const learnerIds = baseLearners.map((u) => u.userId);
+    const minutesByUser = new Map<string, number>();
+    if (learnerIds.length > 0) {
+      const pingRows = await this.prisma.userActivityPing.groupBy({
+        by: ['userId'],
+        where: {
+          createdAt: { gte: from, lte: to },
+          userId: { in: learnerIds },
+        },
+        _count: { _all: true },
+      });
+      for (const row of pingRows) {
+        minutesByUser.set(row.userId, row._count._all * PING_INTERVAL_MINUTES);
+      }
+    }
+
+    // Score moyen par user
+    const scoreAggByUser = new Map<string, { attempts: number; sum: number }>();
+    for (const a of attempts) {
+      const u = scoreAggByUser.get(a.userId) ?? { attempts: 0, sum: 0 };
+      u.attempts += 1;
+      u.sum += a.scorePercent ?? 0;
+      scoreAggByUser.set(a.userId, u);
+    }
+
+    const learnersTable = baseLearners.map((u) => ({
+      ...u,
+      minutesLearned: minutesByUser.get(u.userId) ?? 0,
+    }));
+    const mostInvested = learnersTable
+      .map((u) => {
+        const minutesLearned = u.minutesLearned;
+        const scoreAgg = scoreAggByUser.get(u.userId) ?? { attempts: 0, sum: 0 };
+        const avgQuizScore =
+          scoreAgg.attempts > 0 ? Math.round(scoreAgg.sum / scoreAgg.attempts) : 0;
+        const engagementScore = Math.round(
+          Math.min(100, minutesLearned / 5 + scoreAgg.attempts * 2)
+        );
+        return {
+          userId: u.userId,
+          fullName: u.fullName,
+          email: u.email,
+          role: u.role,
+          avatarUrl: u.avatarUrl,
+          minutesLearned,
+          quizzesTaken: scoreAgg.attempts,
+          avgQuizScore,
+          engagementScore,
+        };
+      })
+      .sort((a, b) => b.minutesLearned - a.minutesLearned || b.engagementScore - a.engagementScore)
+      .slice(0, 8);
+
+    return {
+      filters: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        moduleType,
+        moduleId,
+      },
+      kpi: {
+        totalModules,
+        totalStudents,
+        totalEmployees,
+        totalCertified,
+        completionRate,
+        avgQuizScore,
+        quizzesTakenCount,
+      },
+      modulesPerformance,
+      modulesTable,
+      learnersTable,
+      mostInvested,
+      finalScoreDetails,
+      chapterQuizDetails,
     };
   }
 }

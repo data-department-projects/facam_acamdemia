@@ -86,4 +86,27 @@ export class AnalyticsController {
   ) {
     return this.analyticsService.adminLearnerDetail({ userId, from, to, moduleId });
   }
+
+  /**
+   * Statistiques des modules (admin): KPIs, graphiques, tableaux drill-down.
+   * Filtres:
+   * - from/to: ISO date
+   * - moduleType: interne|externe|all
+   * - moduleId: restreint à un module spécifique
+   */
+  @Get('admin/modules-stats')
+  @Roles(ROLES.ADMIN, ROLES.PLATFORM_MANAGER)
+  modulesStats(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('moduleType') moduleType?: string,
+    @Query('moduleId') moduleId?: string
+  ) {
+    return this.analyticsService.adminModulesStats({
+      from,
+      to,
+      moduleType,
+      moduleId,
+    });
+  }
 }

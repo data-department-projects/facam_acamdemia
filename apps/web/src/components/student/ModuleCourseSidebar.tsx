@@ -14,7 +14,6 @@ export interface ChapterSidebarItem {
   id: string;
   title: string;
   order: number;
-  durationMinutes?: number;
   type: 'video' | 'document' | 'quiz';
   isQuiz?: boolean;
   /** Si fourni, permet de naviguer directement vers l'item (quiz). */
@@ -28,7 +27,6 @@ interface ModuleCourseSidebarProps {
     id: string;
     title: string;
     order: number;
-    durationMinutes?: number;
     items?: ChapterSidebarItem[];
   }>;
   currentChapterOrder: number;
@@ -38,13 +36,6 @@ interface ModuleCourseSidebarProps {
   progressReady?: boolean;
   /** True si le module est déjà certifié/terminé: pas de verrouillage. */
   isCertified?: boolean;
-}
-
-function formatDuration(min: number): string {
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
 export function ModuleCourseSidebar({
@@ -75,8 +66,6 @@ export function ModuleCourseSidebar({
             const prev = idx > 0 ? sortedChapters[idx - 1] : null;
             const isLocked =
               !isCertified && progressReady && !!prev && !completedChapterOrders.has(prev.order);
-            const duration = ch.durationMinutes ?? 0;
-
             const content = (
               <>
                 <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full border border-gray-300 text-xs font-medium">
@@ -98,9 +87,8 @@ export function ModuleCourseSidebar({
                     {ch.title}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {duration > 0 && formatDuration(duration)}
                     {ch.items?.some((i) => i.isQuiz) && (
-                      <span className="inline-flex items-center gap-1 ml-1">
+                      <span className="inline-flex items-center gap-1">
                         <HelpCircle className="size-3" /> Quiz
                       </span>
                     )}

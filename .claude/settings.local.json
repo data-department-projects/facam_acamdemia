@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(cd \"c:\\\\\\\\Users\\\\\\\\BK\\\\\\\\Documents\\\\\\\\FACAM PROJETS\\\\\\\\FACAM ACADEMIA\\\\\\\\Code\")",
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

@@ -124,6 +124,19 @@ button {
   border: 0;
 }
 
+/* Bandeau défilant infini — sans pause entre les cycles */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 22s linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee { animation: none; }
+}
+
 /* Masquer la scrollbar tout en gardant le défilement (overflow-x-auto) */
 .scrollbar-hide {
   -ms-overflow-style: none;
