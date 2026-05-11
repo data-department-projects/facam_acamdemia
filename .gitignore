@@ -8,6 +8,9 @@ out/
 .turbo/
 *.tsbuildinfo
 
+# Prisma generated client (régénéré automatiquement par prisma generate)
+apps/api/src/generated/
+
 # Environment
 .env
 .env.local
