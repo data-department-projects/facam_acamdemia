@@ -8,7 +8,7 @@ out/
 .turbo/
 *.tsbuildinfo
 
-# Prisma generated client (régénéré par prisma generate)
+# Prisma generated client (régénéré automatiquement par prisma generate)
 apps/api/src/generated/
 
 # Environment
@@ -22,6 +22,9 @@ apps/api/src/generated/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json.example
+.claude
+.sixth
+
 
 # OS
 .DS_Store
@@ -44,6 +47,3 @@ supabase/.temp/
 # Misc
 *.local
 .cache/
-
-.claude
-.sixth

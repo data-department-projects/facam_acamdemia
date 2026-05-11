@@ -1,14 +1,17 @@
 # CI FACAM ACADEMIA
-# Exécuté sur chaque push et PR : lint, format, tests unitaires, build.
-# Garantit que la branche main reste déployable et que les PR respectent les standards.
+# Exécuté sur chaque push et PR vers dev, main, stagging.
+# Garantit que le code reste déployable et respecte les standards.
 
 name: CI
 
 on:
   push:
-    branches: [dev, main, production]
+    branches: [dev, main, stagging]
   pull_request:
-    branches: [dev, main, production]
+    branches: [dev, main, stagging]
+
+env:
+  HUSKY: '0'
 
 defaults:
   run:
@@ -18,6 +21,8 @@ jobs:
   lint-and-build:
     name: Lint, format check & build
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +47,8 @@ jobs:
   test:
     name: Unit tests
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
     steps:
       - uses: actions/checkout@v4
 
